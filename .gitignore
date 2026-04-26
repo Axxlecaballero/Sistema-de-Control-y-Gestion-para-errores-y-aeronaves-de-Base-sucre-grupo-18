@@ -1,0 +1,9 @@
+# Ignorar el entorno virtual (cada quien crea el suyo)
+venv/
+
+# Ignorar archivos temporales de Python
+__pycache__/
+*.pyc
+
+# Ignorar la base de datos local para que no choque con la de tus amigos
+*.db
