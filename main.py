@@ -8,7 +8,7 @@ def main(page: ft.Page):
     
     # Un texto de bienvenida
     bienvenida = ft.Text(
-        "Sistema Control de Fallas de aeronavessssss v1.0",
+        "Sistema Control de Fallas de aerona v1.0",
         size=30,
         weight=ft.FontWeight.BOLD,
         color=ft.Colors.BLUE_200 
