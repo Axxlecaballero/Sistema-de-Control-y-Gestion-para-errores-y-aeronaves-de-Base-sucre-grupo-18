@@ -1,54 +1,76 @@
-import flet as ft
+import flet as ft # Importamos flet para la interfaz
 
 def main(page: ft.Page):
-    # Configuración básica de la ventana
-    page.title = "Sistema de Gestión Aeronáutica"
+    # --- CONFIGURACIÓN DE LA PÁGINA ---
+    page.title = "Sistema para fallas y gestión de mantenimiento aeronáutico"
+    page.bgcolor = ft.Colors.GREY_900 
     page.theme_mode = ft.ThemeMode.DARK 
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.padding = 0 
     
-    # Un texto de bienvenida
-    bienvenida = ft.Text(
-        "Sistema Control de Fallas de aerona v1.0",
-        size=30,
-        weight=ft.FontWeight.BOLD,
-        color=ft.Colors.BLUE_200 
+    #ÁREA DE CONTENIDO
+    # Este contenedor es el que cambiará su contenido según la pestaña seleccionada
+    content_area = ft.Container(
+        padding=30,
+        expand=True,
     )
 
-    Subtitulo = ft.Text(
-        "¡Bienvenido al sistema de gestión aeronáutica! Aquí podrás registrar y gestionar las fallas de las aeronaves de manera eficiente.",
-        size=16,
-        weight=ft.FontWeight.BOLD,
-        color=ft.Colors.RED_300
-    )
-    # Un botón de prueba
-    boton_prueba = ft.ElevatedButton(
-        "Comenzar Registro",
-        color =ft.Colors.GREEN_400,
-        icon=ft.Icons.AIRPLANEMODE_ACTIVE,
-        on_click=lambda _: print("¡Botón presionado!")
+    # --- LÓGICA DE NAVEGACIÓN ---
+    # la función se ejecuta cada vez que haces clic en el menú lateral
+    def cambiar_pestana(e):
+        # Obtenemos el índice del botón presionado
+        indice = sidebar.selected_index
+        
+        # Cambiamos el contenido del área derecha dependiendo del índice
+        if indice == 0: # Pestaña Inicio
+            content_area.content = ft.Column([
+                ft.Text("PANEL DE INICIO", size=30, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_100),
+                ft.Divider(height=20),
+                ft.Text("Bienvenido al sistema de control aeronáutico. Use el menú lateral para gestionar la flota y reportar fallas.", size=16),
+            ])
+        elif indice == 1: # Pestaña Aeronaves
+            content_area.content = ft.Column([
+                ft.Text("GESTIÓN DE AERONAVES", size=30, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_100),
+                ft.Divider(height=20),
+                ft.Text("Aquí podrá ver el listado de aviones y su estado de mantenimiento.", size=16),
+            ])
+        elif indice == 2: # Pestaña Fallas
+            content_area.content = ft.Column([
+                ft.Text("CONTROL DE FALLAS", size=30, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_100),
+                ft.Divider(height=20),
+                ft.Text("Registro de incidencias técnicas y fallas detectadas por aeronave.", size=16),
+            ])
+        page.update() # Actualiza la pantalla para mostrar el cambio
+
+    # --- BARRA LATERAL (NavigationRail) ---
+    sidebar = ft.NavigationRail(
+        selected_index=0,
+        label_type=ft.NavigationRailLabelType.ALL,
+        min_width=100,
+        group_alignment=-0.9,
+        destinations=[
+            ft.NavigationRailDestination(icon=ft.Icons.DASHBOARD_OUTLINED, selected_icon=ft.Icons.HOME, label="Inicio"),
+            ft.NavigationRailDestination(icon=ft.Icons.FLIGHT_OUTLINED, selected_icon=ft.Icons.FLIGHT, label="Aeronaves"),
+            ft.NavigationRailDestination(icon=ft.Icons.BUILD_OUTLINED, selected_icon=ft.Icons.BUILD, label="Fallas"),
+        ],
+        bgcolor=ft.Colors.GREY_800,
+        on_change=cambiar_pestana, # Llamamos a la función al cambiar la selección
     )
 
-    # Añadir elementos a la página con diseño centrado
+    # Cargamos el contenido inicial (Inicio) al arrancar
+    cambiar_pestana(None)
+
+    # --- ESTRUCTURA FINAL ---
     page.add(
-        ft.Column(
+        ft.Row(
             [
-                bienvenida,
-                ft.Divider(height=20, color="transparent"), # Espacio invisible
-                boton_prueba,
+                sidebar,
+                ft.VerticalDivider(width=1, color=ft.Colors.GREY_700),
+                content_area,
             ],
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            expand=True,
         )
     )
 
-    page.add(
-        ft.Column(
-            [
-                Subtitulo,
-                ft.Divider(height=20, color="transparent"), # Espacio invisible
-            ],
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        )
-    )
-
-# Ejecutar la aplicación
-ft.app(target=main)
+# Lanzamos la aplicación
+if __name__ == "__main__":
+    ft.app(target=main)
