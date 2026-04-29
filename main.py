@@ -177,11 +177,10 @@ def main(page: ft.Page):
 
     chart_simulado = ft.Container(
         content=ft.Row([
-            chart_bar("Motor", 15, ft.Colors.CYAN),
-            chart_bar("Hidráulico", 8, ft.Colors.BLUE),
-            chart_bar("Eléctrico", 12, ft.Colors.AMBER),
-            chart_bar("Aviónica", 5, ft.Colors.RED),
-            chart_bar("Tren", 3, ft.Colors.PURPLE),
+            chart_bar("Avionica", 12, ft.Colors.CYAN),
+            chart_bar("Plataforma", 8, ft.Colors.BLUE),
+            chart_bar("Mat compuesto", 15, ft.Colors.AMBER),
+            chart_bar("Motores", 10, ft.Colors.RED),
         ], alignment=ft.MainAxisAlignment.SPACE_EVENLY, vertical_alignment=ft.CrossAxisAlignment.END),
         height=350,
         padding=20,
@@ -201,7 +200,7 @@ def main(page: ft.Page):
                         padding=20,
                         content=ft.Column([
                             ft.Text("Falla más frecuente", color=ft.Colors.BLUE_GREY_200),
-                            ft.Text("Sistema de Motor", size=24, weight="bold", color=ft.Colors.CYAN_ACCENT),
+                            ft.Text("Mat compuesto", size=24, weight="bold", color=ft.Colors.CYAN_ACCENT),
                             ft.Text("15 incidencias este año", size=12)
                         ])
                     )
