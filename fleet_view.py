@@ -1,6 +1,6 @@
 import flet as ft
 from components import create_section_title, aircraft_card
-from database import obtener_aeronaves, registrar_aeronave, sumar_horas_vuelo, realizar_inspeccion
+from database import obtener_aeronaves, registrar_aeronave, sumar_horas_vuelo, realizar_inspeccion, eliminar_aeronave
 
 def get_fleet_view(page: ft.Page):
     # --- LÓGICA DE SUMAR HORAS ---
@@ -17,12 +17,17 @@ def get_fleet_view(page: ft.Page):
     def cerrar_dialogo(e):
         dialogo_sumar.open = False
         dialogo_inspeccion.open = False
+        dialogo_eliminar.open = False
         page.update()
 
     def confirmar_suma(e):
         nonlocal selected_sigla
         try:
             nuevas_horas = float(input_horas_nuevas.value)
+            if nuevas_horas <= 0:
+                input_horas_nuevas.error_text = "Valor incorrecto"
+                page.update()
+                return
             sumar_horas_vuelo(selected_sigla, nuevas_horas)
             actualizar_grid()
             cerrar_dialogo(e)
@@ -61,12 +66,15 @@ def get_fleet_view(page: ft.Page):
             input_tecnico.error_text = "Requerido"
             page.update()
             return
-            
-        if realizar_inspeccion(selected_sigla, input_tecnico.value):
+        success, msg = realizar_inspeccion(selected_sigla, input_tecnico.value)
+        if success:
             actualizar_grid()
             cerrar_dialogo(e)
-            page.snack_bar = ft.SnackBar(ft.Text(f"Inspección registrada para {selected_sigla}"))
+            page.snack_bar = ft.SnackBar(ft.Text(msg))
             page.snack_bar.open = True
+            page.update()
+        else:
+            input_tecnico.error_text = msg
             page.update()
 
     dialogo_inspeccion = ft.AlertDialog(
@@ -84,8 +92,34 @@ def get_fleet_view(page: ft.Page):
         actions_alignment=ft.MainAxisAlignment.END,
     )
 
+    # --- LÓGICA DE ELIMINACIÓN ---
+    def confirmar_eliminacion(e):
+        nonlocal selected_sigla
+        success, msg = eliminar_aeronave(selected_sigla)
+        if success:
+            actualizar_grid()
+            cerrar_dialogo(e)
+            page.snack_bar = ft.SnackBar(ft.Text(f"Aeronave {selected_sigla} eliminada."))
+            page.snack_bar.open = True
+        else:
+            page.snack_bar = ft.SnackBar(ft.Text(msg), bgcolor=ft.Colors.RED_400)
+            page.snack_bar.open = True
+        page.update()
+
+    dialogo_eliminar = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Eliminar Aeronave"),
+        content=ft.Text("¿Estás seguro de que deseas eliminar esta aeronave?\nSe perderá todo su historial de forma permanente.", color=ft.Colors.BLUE_GREY_200),
+        actions=[
+            ft.TextButton("Cancelar", on_click=cerrar_dialogo),
+            ft.Button("Sí, Eliminar", bgcolor=ft.Colors.RED_400, color=ft.Colors.WHITE, on_click=confirmar_eliminacion),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
     page.overlay.append(dialogo_sumar)
     page.overlay.append(dialogo_inspeccion)
+    page.overlay.append(dialogo_eliminar)
 
     def abrir_dialogo_sumar(sigla):
         nonlocal selected_sigla
@@ -105,6 +139,12 @@ def get_fleet_view(page: ft.Page):
         dialogo_inspeccion.open = True
         page.update()
 
+    def abrir_dialogo_eliminar(sigla):
+        nonlocal selected_sigla
+        selected_sigla = sigla
+        dialogo_eliminar.open = True
+        page.update()
+
     def actualizar_grid():
         aviones = obtener_aeronaves()
         grid_aviones.controls = [
@@ -114,7 +154,8 @@ def get_fleet_view(page: ft.Page):
                 a["max_horas"], 
                 a["prox_inspeccion"], 
                 abrir_dialogo_sumar,
-                abrir_dialogo_inspeccion
+                abrir_dialogo_inspeccion,
+                abrir_dialogo_eliminar
             )], col={"sm": 12, "md": 6, "lg": 4}) 
             for a in aviones
         ]
@@ -129,13 +170,15 @@ def get_fleet_view(page: ft.Page):
             a["max_horas"], 
             a["prox_inspeccion"], 
             abrir_dialogo_sumar,
-            abrir_dialogo_inspeccion
+            abrir_dialogo_inspeccion,
+            abrir_dialogo_eliminar
         )], col={"sm": 12, "md": 6, "lg": 4}) for a in aviones_db],
         spacing=20
     )
 
-    input_nueva_sigla = ft.TextField(label="Nueva Sigla", hint_text="Ej: YV-101", expand=True, border_color=ft.Colors.BLUE_GREY_700, dense=True)
+    input_nueva_sigla = ft.TextField(label="Serial", hint_text="Ej: YV-101", width=150, border_color=ft.Colors.BLUE_GREY_700, dense=True)
     input_horas_ini = ft.TextField(label="Horas Iniciales", value="0", width=150, border_color=ft.Colors.BLUE_GREY_700, dense=True)
+    input_max_horas = ft.TextField(label="Vida Útil (Max)", value="1000", width=150, border_color=ft.Colors.BLUE_GREY_700, dense=True)
 
     def registrar_avion_click(e):
         if not input_nueva_sigla.value:
@@ -145,18 +188,33 @@ def get_fleet_view(page: ft.Page):
         
         try:
             horas = float(input_horas_ini.value)
-            if registrar_aeronave(input_nueva_sigla.value, horas):
+            max_h = float(input_max_horas.value)
+            
+            if horas < 0:
+                input_horas_ini.error_text = "Valor incorrecto"
+                page.update()
+                return
+            if max_h < 0:
+                input_max_horas.error_text = "Valor incorrecto"
+                page.update()
+                return
+                
+            if registrar_aeronave(input_nueva_sigla.value, horas, max_horas=max_h):
                 input_nueva_sigla.value = ""
                 input_horas_ini.value = "0"
+                input_max_horas.value = "1000"
                 input_nueva_sigla.error_text = None
+                input_horas_ini.error_text = None
+                input_max_horas.error_text = None
                 actualizar_grid()
                 page.snack_bar = ft.SnackBar(ft.Text("Aeronave registrada con éxito"))
                 page.snack_bar.open = True
             else:
-                input_nueva_sigla.error_text = "La sigla ya existe"
+                input_nueva_sigla.error_text = "El serial ya existe"
             page.update()
         except ValueError:
-            input_horas_ini.error_text = "Número inválido"
+            input_horas_ini.error_text = "Valor incorrecto"
+            input_max_horas.error_text = "Valor incorrecto"
             page.update()
 
     view_mantenimiento = ft.Container(
@@ -166,6 +224,7 @@ def get_fleet_view(page: ft.Page):
                 content=ft.Row([
                     input_nueva_sigla,
                     input_horas_ini,
+                    input_max_horas,
                     ft.Button(
                         "Registrar Avión", 
                         icon=ft.Icons.ADD, 
@@ -174,7 +233,7 @@ def get_fleet_view(page: ft.Page):
                         height=40,
                         on_click=registrar_avion_click
                     ),
-                ], spacing=15),
+                ], spacing=15, wrap=True),
                 margin=ft.Margin.only(bottom=20)
             ),
             grid_aviones

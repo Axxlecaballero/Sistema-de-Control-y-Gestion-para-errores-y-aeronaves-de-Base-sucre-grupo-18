@@ -72,9 +72,9 @@ def get_db_connection():
 
 # Funciones específicas para Aeronaves (lo que pidió el usuario)
 
-def registrar_aeronave(sigla, horas_iniciales, fabricante="", max_horas=100, prox_inspeccion=None):
+def registrar_aeronave(sigla, horas_iniciales, fabricante="", max_horas=1000, prox_inspeccion=None):
     if prox_inspeccion is None:
-        prox_inspeccion = horas_iniciales + max_horas
+        prox_inspeccion = horas_iniciales + 100.0
         
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -114,12 +114,17 @@ def realizar_inspeccion(sigla, tecnico, tipo="Periódica"):
     cursor = conn.cursor()
     try:
         # 1. Obtener datos actuales
-        cursor.execute("SELECT id_aeronave, max_horas FROM aeronaves WHERE sigla = ?", (sigla,))
+        cursor.execute("SELECT id_aeronave, horas_vuelo, prox_inspeccion FROM aeronaves WHERE sigla = ?", (sigla,))
         aeronave = cursor.fetchone()
         
         if aeronave:
             id_aero = aeronave["id_aeronave"]
-            max_h = aeronave["max_horas"]
+            horas_vuelo = aeronave["horas_vuelo"]
+            prox_inspeccion = aeronave["prox_inspeccion"]
+            
+            horas_ciclo = 100.0 - (prox_inspeccion - horas_vuelo)
+            if horas_ciclo <= 0:
+                return False, "No se puede inspeccionar: El contador ya está en 0 hr."
             
             # 2. Registrar la inspección en el historial
             cursor.execute("""
@@ -127,22 +132,43 @@ def realizar_inspeccion(sigla, tecnico, tipo="Periódica"):
                 VALUES (?, ?, ?)
             """, (tecnico, tipo, id_aero))
             
-            # 3. Actualizar la aeronave: sumar max_horas a prox_inspeccion
+            # 3. Actualizar la aeronave: prox_inspeccion pasa a ser horas_vuelo + 100 y estado vuelve a Operativo
             cursor.execute("""
                 UPDATE aeronaves 
-                SET prox_inspeccion = prox_inspeccion + ?
+                SET prox_inspeccion = ?, estado = 'Operativo'
                 WHERE id_aeronave = ?
-            """, (max_h, id_aero))
+            """, (horas_vuelo + 100.0, id_aero))
             
             conn.commit()
-            return True
-        return False
+            return True, "Inspección registrada con éxito."
+        return False, "Aeronave no encontrada."
     except Exception as e:
         print(f"Error al realizar inspección: {e}")
-        return False
+        return False, "Error interno del servidor."
     finally:
         conn.close()
 
 if __name__ == "__main__":
     init_db()
     print("Base de datos inicializada con éxito.")
+
+def eliminar_aeronave(sigla):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_aeronave FROM aeronaves WHERE sigla = ?", (sigla,))
+        row = cursor.fetchone()
+        if row:
+            id_aero = row["id_aeronave"]
+            cursor.execute("DELETE FROM inspecciones WHERE fk_aeronave = ?", (id_aero,))
+            cursor.execute("DELETE FROM piezas WHERE fk_aeronave = ?", (id_aero,))
+            cursor.execute("DELETE FROM fallas WHERE fk_aeronave = ?", (id_aero,))
+            cursor.execute("DELETE FROM aeronaves WHERE id_aeronave = ?", (id_aero,))
+            conn.commit()
+            return True, "Aeronave eliminada correctamente."
+        return False, "Aeronave no encontrada."
+    except Exception as e:
+        print(f"Error al eliminar aeronave: {e}")
+        return False, "Error interno al eliminar."
+    finally:
+        conn.close()
