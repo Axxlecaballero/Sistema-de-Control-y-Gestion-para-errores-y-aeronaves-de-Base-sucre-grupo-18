@@ -172,3 +172,49 @@ def eliminar_aeronave(sigla):
         return False, "Error interno al eliminar."
     finally:
         conn.close()
+
+def registrar_pieza(sigla, nombre_pieza, numero_parte, numero_serie, fabricante, horas_pieza):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_aeronave FROM aeronaves WHERE sigla = ?", (sigla,))
+        aeronave = cursor.fetchone()
+        if aeronave:
+            id_aero = aeronave["id_aeronave"]
+            cursor.execute("""
+                INSERT INTO piezas (nombre_pieza, numero_parte, numero_serie, fabricante, horas_pieza, fk_aeronave)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (nombre_pieza, numero_parte, numero_serie, fabricante, horas_pieza, id_aero))
+            conn.commit()
+            return True, "Pieza registrada con éxito"
+        return False, "Aeronave no encontrada"
+    except Exception as e:
+        print(f"Error al registrar pieza: {e}")
+        return False, "Error interno"
+    finally:
+        conn.close()
+
+def obtener_piezas_por_sigla(sigla):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.id_pieza, p.nombre_pieza, p.numero_parte, p.numero_serie, p.fabricante, p.horas_pieza
+        FROM piezas p
+        JOIN aeronaves a ON p.fk_aeronave = a.id_aeronave
+        WHERE a.sigla = ?
+    """, (sigla,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def sumar_horas_pieza(id_pieza, nuevas_horas):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE piezas 
+        SET horas_pieza = ROUND(horas_pieza + ?, 2)
+        WHERE id_pieza = ?
+    """, (nuevas_horas, id_pieza))
+    conn.commit()
+    conn.close()
+
