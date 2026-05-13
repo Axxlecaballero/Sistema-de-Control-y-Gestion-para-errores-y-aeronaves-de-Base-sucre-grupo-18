@@ -1,8 +1,11 @@
 import flet as ft
 from fleet_view import get_fleet_view
 from reports_view import get_reports_view
+from database import init_db
 
 def main(page: ft.Page):
+    # Inicializar base de datos
+    init_db()
     # Configuración básica de la página
     page.title = "AERO-CONTROL: Gestión de Mantenimiento Aeronáutico"
     page.theme_mode = ft.ThemeMode.DARK

@@ -7,11 +7,14 @@ def create_section_title(title, subtitle):
         ft.Divider(height=30, color=ft.Colors.WHITE_12)
     ], spacing=5)
 
-def aircraft_card(sigla, horas, on_sumar_click):
-    # --- LÓGICA DE PRÓRROGA Y ESTADOS ---
-    limite_base = 100
+def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_insp_click):
+    # --- LÓGICA DINÁMICA DE PRÓRROGA Y ESTADOS ---
+    limite_base = prox_inspeccion
     prorroga = 10
     limite_total = limite_base + prorroga
+    
+    # Calculamos la diferencia para saber cuánto falta para la inspección
+    faltan = limite_base - horas
     
     if horas >= limite_total:
         estado = "VENCIDO"
@@ -20,15 +23,15 @@ def aircraft_card(sigla, horas, on_sumar_click):
     elif horas >= limite_base:
         estado = "EN PRÓRROGA"
         color_tema = ft.Colors.RED_400
-        porcentaje = horas / limite_total
-    elif horas >= 90:
+        porcentaje = (horas - (limite_base - max_horas)) / (max_horas + prorroga)
+    elif faltan <= 10: # Si faltan 10 horas o menos
         estado = "CRÍTICO"
         color_tema = ft.Colors.ORANGE_400
-        porcentaje = horas / limite_base
+        porcentaje = (horas - (limite_base - max_horas)) / max_horas
     else:
         estado = "OPERATIVO"
         color_tema = ft.Colors.CYAN_ACCENT
-        porcentaje = horas / limite_base
+        porcentaje = (horas - (limite_base - max_horas)) / max_horas
 
     return ft.Container(
         content=ft.Column([
@@ -54,13 +57,19 @@ def aircraft_card(sigla, horas, on_sumar_click):
             ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=8),
             
             ft.Row([
+                ft.TextButton(
+                    "Inspección", 
+                    icon=ft.Icons.BUILD_CIRCLE,
+                    style=ft.ButtonStyle(color=ft.Colors.BLUE_GREY_200),
+                    on_click=lambda _: on_insp_click(sigla)
+                ),
                 ft.Button(
                     "Sumar Horas", 
                     icon=ft.Icons.ADD, 
                     style=ft.ButtonStyle(color=color_tema),
                     on_click=lambda _: on_sumar_click(sigla)
                 ),
-            ], alignment=ft.MainAxisAlignment.END)
+            ], alignment=ft.MainAxisAlignment.END, spacing=0)
         ], spacing=15),
         padding=20,
         bgcolor="#1e293b",
