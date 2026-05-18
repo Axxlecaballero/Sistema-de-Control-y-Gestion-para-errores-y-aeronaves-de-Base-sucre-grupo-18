@@ -240,3 +240,70 @@ def intercambiar_pieza_db(id_pieza, sigla_destino):
     finally:
         conn.close()
 
+
+def registrar_falla_db(sigla, reportante, titulo, descripcion):
+    """Guarda una nueva falla en la base de datos SQLite."""
+    conn = sqlite3.connect("mantenimiento.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_aeronave FROM aeronaves WHERE sigla = ?", (sigla,))
+        aeronave = cursor.fetchone()
+        
+        if aeronave:
+            id_aero = aeronave["id_aeronave"]
+            cursor.execute("""
+                INSERT INTO fallas (fk_aeronave, descubierta_por, titulo_falla, descripcion_falla, tipo_falla)
+                VALUES (?, ?, ?, ?, 'Pendiente')
+            """, (id_aero, reportante, titulo, descripcion))
+            conn.commit()
+            return True
+        return False
+    except Exception as e:
+        print(f"Error en registrar_falla_db: {e}")
+        return False
+    finally:
+        conn.close()
+
+def obtener_fallas_db():
+    """Recupera todos los reportes de la base de datos."""
+    conn = sqlite3.connect("mantenimiento.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT a.sigla, f.descubierta_por as reportante, f.titulo_falla as falla, f.tipo_falla as status
+            FROM fallas f
+            JOIN aeronaves a ON f.fk_aeronave = a.id_aeronave
+        """)
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"Error en obtener_fallas_db: {e}")
+        return []
+    finally:
+        conn.close()
+
+def actualizar_falla_db(sigla, titulo_original, inspector, titulo_nuevo, estado, pieza, razon):
+    """Actualiza la falla y registra la solución."""
+    conn = sqlite3.connect("mantenimiento.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        # Buscamos la falla específica
+        cursor.execute("""
+            UPDATE fallas 
+            SET tipo_falla = ?, 
+                titulo_falla = ?, 
+                descripcion_falla = descripcion_falla || '\n[SOLUCIÓN POR ' || ? || ']: ' || ? || ' (Pieza: ' || ? || ')'
+            WHERE fk_aeronave = (SELECT id_aeronave FROM aeronaves WHERE sigla = ?) 
+            AND titulo_falla = ?
+        """, (estado, titulo_nuevo, inspector, razon, pieza, sigla, titulo_original))
+        
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Error DB: {e}")
+        return False
+    finally:
+        conn.close()
