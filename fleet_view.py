@@ -1,6 +1,6 @@
 import flet as ft
-from components import create_section_title, aircraft_card, pieza_card
-from database import obtener_aeronaves, registrar_aeronave, sumar_horas_vuelo, realizar_inspeccion, eliminar_aeronave, obtener_piezas_por_sigla, registrar_pieza, sumar_horas_pieza
+from components import create_section_title, aircraft_card
+from database import obtener_aeronaves, registrar_aeronave, sumar_horas_vuelo, realizar_inspeccion, eliminar_aeronave
 
 def get_fleet_view(page: ft.Page):
     # --- LÓGICA DE SUMAR HORAS ---
@@ -47,7 +47,7 @@ def get_fleet_view(page: ft.Page):
         ], tight=True, spacing=20),
         actions=[
             ft.TextButton("Cancelar", on_click=cerrar_dialogo),
-            ft.Button(
+            ft.ElevatedButton(
                 "Confirmar", 
                 bgcolor=ft.Colors.CYAN_ACCENT, 
                 color=ft.Colors.BLACK, 
@@ -87,7 +87,7 @@ def get_fleet_view(page: ft.Page):
         ], tight=True, spacing=20),
         actions=[
             ft.TextButton("Cancelar", on_click=cerrar_dialogo),
-            ft.Button("Confirmar Inspección", bgcolor=ft.Colors.GREEN_400, color=ft.Colors.BLACK, on_click=confirmar_inspeccion),
+            ft.ElevatedButton("Confirmar Inspección", bgcolor=ft.Colors.GREEN_400, color=ft.Colors.BLACK, on_click=confirmar_inspeccion),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
@@ -112,135 +112,14 @@ def get_fleet_view(page: ft.Page):
         content=ft.Text("¿Estás seguro de que deseas eliminar esta aeronave?\nSe perderá todo su historial de forma permanente.", color=ft.Colors.BLUE_GREY_200),
         actions=[
             ft.TextButton("Cancelar", on_click=cerrar_dialogo),
-            ft.Button("Sí, Eliminar", bgcolor=ft.Colors.RED_400, color=ft.Colors.WHITE, on_click=confirmar_eliminacion),
+            ft.ElevatedButton("Sí, Eliminar", bgcolor=ft.Colors.RED_400, color=ft.Colors.WHITE, on_click=confirmar_eliminacion),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
-    )
-
-    # --- LÓGICA DE PIEZAS ---
-    selected_sigla_piezas = None
-    selected_pieza_id = None
-    
-    input_nombre_pieza = ft.TextField(label="Nombre Pieza", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
-    input_pn = ft.TextField(label="Número Parte", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
-    input_sn = ft.TextField(label="Número Serie", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
-    input_fabricante = ft.TextField(label="Fabricante", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
-    input_horas_pieza = ft.TextField(label="Horas Iniciales", value="0", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
-
-    input_horas_sumar_pieza = ft.TextField(label="Horas a sumar", border_color=ft.Colors.BLUE_GREY_700, keyboard_type=ft.KeyboardType.NUMBER)
-    lista_piezas_column = ft.Column(scroll=ft.ScrollMode.ADAPTIVE, height=300, spacing=10)
-
-    def abrir_dialogo_sumar_pieza(id_pieza, nombre_pieza):
-        nonlocal selected_pieza_id
-        selected_pieza_id = id_pieza
-        dialogo_sumar_pieza.title = ft.Text(f"Añadir Horas: {nombre_pieza}")
-        input_horas_sumar_pieza.value = ""
-        input_horas_sumar_pieza.error_text = None
-        dialogo_sumar_pieza.open = True
-        page.update()
-
-    def confirmar_suma_pieza(e):
-        nonlocal selected_pieza_id
-        try:
-            nuevas_horas = float(input_horas_sumar_pieza.value)
-            if nuevas_horas <= 0:
-                input_horas_sumar_pieza.error_text = "Valor incorrecto"
-                page.update()
-                return
-            sumar_horas_pieza(selected_pieza_id, nuevas_horas)
-            dialogo_sumar_pieza.open = False
-            cargar_piezas(selected_sigla_piezas)
-            page.snack_bar = ft.SnackBar(ft.Text("Horas añadidas a la pieza"))
-            page.snack_bar.open = True
-            page.update()
-        except ValueError:
-            input_horas_sumar_pieza.error_text = "Ingrese un número válido"
-            page.update()
-
-    dialogo_sumar_pieza = ft.AlertDialog(
-        modal=True,
-        title=ft.Text("Registrar Vuelo Pieza"),
-        content=ft.Column([
-            ft.Text("Ingrese las horas a añadir:", color=ft.Colors.BLUE_GREY_200),
-            input_horas_sumar_pieza,
-        ], tight=True, spacing=20),
-        actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: (setattr(dialogo_sumar_pieza, 'open', False), page.update())),
-            ft.Button("Confirmar", bgcolor=ft.Colors.CYAN_ACCENT, color=ft.Colors.BLACK, on_click=confirmar_suma_pieza),
-        ]
-    )
-
-    def registrar_nueva_pieza(e):
-        if not input_nombre_pieza.value:
-            input_nombre_pieza.error_text = "Requerido"
-            page.update()
-            return
-        try:
-            horas = float(input_horas_pieza.value)
-        except ValueError:
-            input_horas_pieza.error_text = "Inválido"
-            page.update()
-            return
-
-        success, msg = registrar_pieza(
-            selected_sigla_piezas,
-            input_nombre_pieza.value,
-            input_pn.value,
-            input_sn.value,
-            input_fabricante.value,
-            horas
-        )
-        if success:
-            input_nombre_pieza.value = ""
-            input_pn.value = ""
-            input_sn.value = ""
-            input_fabricante.value = ""
-            input_horas_pieza.value = "0"
-            input_nombre_pieza.error_text = None
-            input_horas_pieza.error_text = None
-            cargar_piezas(selected_sigla_piezas)
-            page.snack_bar = ft.SnackBar(ft.Text(msg))
-            page.snack_bar.open = True
-            page.update()
-        else:
-            page.snack_bar = ft.SnackBar(ft.Text(msg), bgcolor=ft.Colors.RED_400)
-            page.snack_bar.open = True
-            page.update()
-
-    def cargar_piezas(sigla):
-        piezas = obtener_piezas_por_sigla(sigla)
-        lista_piezas_column.controls.clear()
-        if not piezas:
-            lista_piezas_column.controls.append(ft.Text("No hay piezas registradas.", color=ft.Colors.BLUE_GREY_200))
-        else:
-            for p in piezas:
-                lista_piezas_column.controls.append(pieza_card(p, abrir_dialogo_sumar_pieza))
-        page.update()
-
-    dialogo_piezas = ft.AlertDialog(
-        modal=True,
-        title=ft.Text("Gestión de Piezas"),
-        content=ft.Container(
-            width=600,
-            content=ft.Column([
-                ft.Text("Añadir Nueva Pieza", weight="bold"),
-                ft.Row([input_nombre_pieza, input_pn, input_sn], spacing=10),
-                ft.Row([input_fabricante, input_horas_pieza, ft.Button("Añadir", on_click=registrar_nueva_pieza, bgcolor=ft.Colors.CYAN_ACCENT, color=ft.Colors.BLACK)], spacing=10, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                ft.Divider(height=20, color=ft.Colors.WHITE_12),
-                ft.Text("Piezas Instaladas", weight="bold"),
-                lista_piezas_column
-            ], tight=True, spacing=10)
-        ),
-        actions=[
-            ft.TextButton("Cerrar", on_click=lambda e: (setattr(dialogo_piezas, 'open', False), page.update()))
-        ]
     )
 
     page.overlay.append(dialogo_sumar)
     page.overlay.append(dialogo_inspeccion)
     page.overlay.append(dialogo_eliminar)
-    page.overlay.append(dialogo_piezas)
-    page.overlay.append(dialogo_sumar_pieza)
 
     def abrir_dialogo_sumar(sigla):
         nonlocal selected_sigla
@@ -266,14 +145,6 @@ def get_fleet_view(page: ft.Page):
         dialogo_eliminar.open = True
         page.update()
 
-    def abrir_dialogo_piezas(sigla):
-        nonlocal selected_sigla_piezas
-        selected_sigla_piezas = sigla
-        dialogo_piezas.title = ft.Text(f"Piezas del Avión: {sigla}")
-        cargar_piezas(sigla)
-        dialogo_piezas.open = True
-        page.update()
-
     def actualizar_grid():
         aviones = obtener_aeronaves()
         grid_aviones.controls = [
@@ -284,8 +155,7 @@ def get_fleet_view(page: ft.Page):
                 a["prox_inspeccion"], 
                 abrir_dialogo_sumar,
                 abrir_dialogo_inspeccion,
-                abrir_dialogo_eliminar,
-                abrir_dialogo_piezas
+                abrir_dialogo_eliminar
             )], col={"sm": 12, "md": 6, "lg": 4}) 
             for a in aviones
         ]
@@ -301,8 +171,7 @@ def get_fleet_view(page: ft.Page):
             a["prox_inspeccion"], 
             abrir_dialogo_sumar,
             abrir_dialogo_inspeccion,
-            abrir_dialogo_eliminar,
-            abrir_dialogo_piezas
+            abrir_dialogo_eliminar
         )], col={"sm": 12, "md": 6, "lg": 4}) for a in aviones_db],
         spacing=20
     )
@@ -356,7 +225,7 @@ def get_fleet_view(page: ft.Page):
                     input_nueva_sigla,
                     input_horas_ini,
                     input_max_horas,
-                    ft.Button(
+                    ft.ElevatedButton(
                         "Registrar Avión", 
                         icon=ft.Icons.ADD, 
                         bgcolor=ft.Colors.CYAN_ACCENT, 

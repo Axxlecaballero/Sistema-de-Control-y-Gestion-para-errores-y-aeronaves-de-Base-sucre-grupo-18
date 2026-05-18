@@ -7,7 +7,7 @@ def create_section_title(title, subtitle):
         ft.Divider(height=30, color=ft.Colors.WHITE_12)
     ], spacing=5)
 
-def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_insp_click, on_delete_click, on_piezas_click=None):
+def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_insp_click, on_delete_click):
     # --- LÓGICA DINÁMICA DE PRÓRROGA Y ESTADOS ---
     limite_base = prox_inspeccion
     prorroga = 10
@@ -79,30 +79,21 @@ def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_i
                     tooltip="Eliminar Aeronave",
                     on_click=lambda _: on_delete_click(sigla)
                 ),
-                ft.Row([
-                    ft.TextButton(
-                        "Piezas",
-                        icon=ft.Icons.SETTINGS,
-                        style=ft.ButtonStyle(color=ft.Colors.AMBER_400),
-                        on_click=lambda _: on_piezas_click(sigla) if on_piezas_click else None,
-                        disabled=vida_alcanzada
-                    ),
-                    ft.TextButton(
-                        "Insp.", 
-                        icon=ft.Icons.BUILD_CIRCLE,
-                        style=ft.ButtonStyle(color=ft.Colors.BLUE_GREY_200),
-                        on_click=lambda _: on_insp_click(sigla),
-                        disabled=vida_alcanzada
-                    ),
-                    ft.TextButton(
-                        "+ Horas", 
-                        icon=ft.Icons.ADD, 
-                        style=ft.ButtonStyle(color=color_tema),
-                        on_click=lambda _: on_sumar_click(sigla),
-                        disabled=vida_alcanzada
-                    )
-                ], spacing=0, wrap=True)
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+                ft.TextButton(
+                    "Inspección", 
+                    icon=ft.Icons.BUILD_CIRCLE,
+                    style=ft.ButtonStyle(color=ft.Colors.BLUE_GREY_200),
+                    on_click=lambda _: on_insp_click(sigla),
+                    disabled=vida_alcanzada
+                ),
+                ft.TextButton(
+                    "Agregar Horas", 
+                    icon=ft.Icons.ADD, 
+                    style=ft.ButtonStyle(color=color_tema),
+                    on_click=lambda _: on_sumar_click(sigla),
+                    disabled=vida_alcanzada
+                )
+            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
         ], spacing=15),
         padding=20,
         bgcolor="#1e293b",
@@ -157,7 +148,7 @@ def pieza_card(pieza, on_sumar_click):
             ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=6),
             
             ft.Row([
-                ft.Button(
+                ft.TextButton(
                     "Sumar Horas", 
                     icon=ft.Icons.ADD, 
                     style=ft.ButtonStyle(color=color_tema),

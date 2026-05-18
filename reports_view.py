@@ -64,8 +64,8 @@ def get_reports_view(page: ft.Page):
                         in_falla,
                         in_desc,
                         ft.Row([
-                            ft.Button("Reportar Solución", icon=ft.Icons.CHECK_CIRCLE_OUTLINE, color=ft.Colors.GREEN_400),
-                            ft.Button("Enviar Reporte", icon=ft.Icons.SEND, bgcolor=ft.Colors.CYAN_ACCENT, color=ft.Colors.BLACK, on_click=enviar_reporte),
+                            ft.ElevatedButton("Reportar Solución", icon=ft.Icons.CHECK_CIRCLE_OUTLINE, color=ft.Colors.GREEN_400),
+                            ft.ElevatedButton("Enviar Reporte", icon=ft.Icons.SEND, bgcolor=ft.Colors.CYAN_ACCENT, color=ft.Colors.BLACK, on_click=enviar_reporte),
                         ], alignment=ft.MainAxisAlignment.END, spacing=10)
                     ], spacing=15)
                 )

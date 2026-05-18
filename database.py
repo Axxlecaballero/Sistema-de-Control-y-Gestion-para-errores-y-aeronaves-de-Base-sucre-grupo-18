@@ -218,3 +218,25 @@ def sumar_horas_pieza(id_pieza, nuevas_horas):
     conn.commit()
     conn.close()
 
+def intercambiar_pieza_db(id_pieza, sigla_destino):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_aeronave FROM aeronaves WHERE sigla = ?", (sigla_destino,))
+        aeronave = cursor.fetchone()
+        if aeronave:
+            id_aero_dest = aeronave["id_aeronave"]
+            cursor.execute("""
+                UPDATE piezas
+                SET fk_aeronave = ?
+                WHERE id_pieza = ?
+            """, (id_aero_dest, id_pieza))
+            conn.commit()
+            return True, "Pieza intercambiada con éxito"
+        return False, "Aeronave de destino no encontrada"
+    except Exception as e:
+        print(f"Error al intercambiar pieza: {e}")
+        return False, "Error interno"
+    finally:
+        conn.close()
+

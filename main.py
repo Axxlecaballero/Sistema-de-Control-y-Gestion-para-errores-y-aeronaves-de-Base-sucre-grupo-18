@@ -1,6 +1,7 @@
 import flet as ft
 from fleet_view import get_fleet_view
 from reports_view import get_reports_view
+from piezas_view import get_piezas_view
 from database import init_db
 
 def main(page: ft.Page):
@@ -16,13 +17,19 @@ def main(page: ft.Page):
 
     # Obtener las vistas
     view_mantenimiento = get_fleet_view(page)
+    view_piezas = get_piezas_view(page)
     view_fallas = get_reports_view(page)
 
     # --- LÓGICA NAVEGACIÓN ---
     def on_nav_change(e):
         idx = e.control.selected_index
         view_mantenimiento.visible = (idx == 0)
-        view_fallas.visible = (idx == 1)
+        view_piezas.visible = (idx == 1)
+        view_fallas.visible = (idx == 2)
+        
+        if idx == 1 and hasattr(view_piezas, 'refresh_data'):
+            view_piezas.refresh_data()
+            
         page.update()
 
     page.navigation_bar = ft.NavigationBar(
@@ -30,12 +37,13 @@ def main(page: ft.Page):
         selected_index=0,
         destinations=[
             ft.NavigationBarDestination(icon=ft.Icons.FLIGHT_TAKEOFF, label="Flota"),
+            ft.NavigationBarDestination(icon=ft.Icons.SETTINGS, label="Piezas"),
             ft.NavigationBarDestination(icon=ft.Icons.REPORT_GMAILERRORRED, label="Reportes"),
         ],
         on_change=on_nav_change
     )
 
-    page.add(ft.Row([view_mantenimiento, view_fallas], expand=True))
+    page.add(ft.Row([view_mantenimiento, view_piezas, view_fallas], expand=True))
 
 if __name__ == "__main__":
     ft.app(target=main)
