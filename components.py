@@ -101,7 +101,7 @@ def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_i
         border=ft.Border.all(1, ft.Colors.WHITE_10),
     )
 
-def pieza_card(pieza, on_sumar_click):
+def pieza_card(pieza):
     horas = pieza["horas_pieza"]
     if horas < 90:
         estado = "OPERATIVO"
@@ -146,15 +146,6 @@ def pieza_card(pieza, on_sumar_click):
                 size=12, color=ft.Colors.AMBER_400
             ),
             ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=6),
-            
-            ft.Row([
-                ft.TextButton(
-                    "Sumar Horas", 
-                    icon=ft.Icons.ADD, 
-                    style=ft.ButtonStyle(color=color_tema),
-                    on_click=lambda _: on_sumar_click(pieza["id_pieza"], pieza["nombre_pieza"])
-                )
-            ], alignment=ft.MainAxisAlignment.END)
         ], spacing=10),
         padding=15,
         bgcolor="#1e293b",

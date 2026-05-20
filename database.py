@@ -101,13 +101,27 @@ def obtener_aeronaves():
 def sumar_horas_vuelo(sigla, nuevas_horas):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE aeronaves 
-        SET horas_vuelo = ROUND(horas_vuelo + ?, 2)
-        WHERE sigla = ?
-    """, (nuevas_horas, sigla))
-    conn.commit()
-    conn.close()
+    try:
+        # 1. Actualizar horas de la aeronave
+        cursor.execute("""
+            UPDATE aeronaves 
+            SET horas_vuelo = ROUND(horas_vuelo + ?, 2)
+            WHERE sigla = ?
+        """, (nuevas_horas, sigla))
+        
+        # 2. Actualizar automáticamente las horas de todas sus piezas asociadas
+        cursor.execute("""
+            UPDATE piezas 
+            SET horas_pieza = ROUND(horas_pieza + ?, 2)
+            WHERE fk_aeronave = (SELECT id_aeronave FROM aeronaves WHERE sigla = ?)
+        """, (nuevas_horas, sigla))
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error al sumar horas de vuelo automáticas: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 def realizar_inspeccion(sigla, tecnico, tipo="Periódica"):
     conn = get_db_connection()
