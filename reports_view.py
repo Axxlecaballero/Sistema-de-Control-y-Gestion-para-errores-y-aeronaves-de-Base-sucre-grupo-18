@@ -167,7 +167,7 @@ def get_reports_view(page: ft.Page):
             mostrar_popup("Atención", "Por favor, llene todos los campos del reporte.", ft.Colors.ORANGE_400)
             return
         
-        if registrar_falla_db(dd_sigla_nuevo.value, in_tecnico.value, in_falla.value, in_desc.value):
+        if registrar_falla_db(dd_sigla_nuevo.value, in_tecnico.value, in_falla.value, in_desc.value, fecha_seleccionada_str):
             mostrar_popup("Éxito", "Reporte registrado correctamente.", ft.Colors.GREEN_400)
             in_falla.value = ""; in_desc.value = ""; in_tecnico.value = ""; dd_sigla_nuevo.value = None
             actualizar_tabla()
@@ -402,7 +402,7 @@ def get_reports_view(page: ft.Page):
     cargar_aviones()
     actualizar_tabla()
 
-    return ft.Container(
+    contenedor = ft.Container(
         content=ft.Column([
             create_section_title("Gestión de Reportes", "Control de incidencias y soluciones técnicas"),
             ft.Card(content=ft.Container(padding=30, bgcolor="#1e293b", content=ft.Column([form_nuevo, form_solucion]))),
@@ -448,3 +448,12 @@ def get_reports_view(page: ft.Page):
         ], scroll=ft.ScrollMode.ADAPTIVE),
         padding=40, expand=True, visible=False
     )
+
+    def refresh_data():
+        cargar_aviones()
+        filtro_aeronave.update()
+        dd_sigla_nuevo.update()
+        page.update()
+
+    contenedor.refresh_data = refresh_data
+    return contenedor

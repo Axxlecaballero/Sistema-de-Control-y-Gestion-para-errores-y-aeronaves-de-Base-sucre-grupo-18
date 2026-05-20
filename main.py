@@ -29,6 +29,9 @@ def main(page: ft.Page):
         
         if idx == 1 and hasattr(view_piezas, 'refresh_data'):
             view_piezas.refresh_data()
+        
+        if idx == 2 and hasattr(view_fallas, 'refresh_data'):
+            view_fallas.refresh_data()
             
         page.update()
 

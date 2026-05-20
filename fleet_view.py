@@ -178,7 +178,6 @@ def get_fleet_view(page: ft.Page):
 
     input_nueva_sigla = ft.TextField(label="Serial", hint_text="Ej: YV-101", width=150, border_color=ft.Colors.BLUE_GREY_700, dense=True)
     input_horas_ini = ft.TextField(label="Horas Iniciales", value="0", width=150, border_color=ft.Colors.BLUE_GREY_700, dense=True)
-    input_max_horas = ft.TextField(label="Vida Útil (Max)", value="1000", width=150, border_color=ft.Colors.BLUE_GREY_700, dense=True)
 
     def registrar_avion_click(e):
         if not input_nueva_sigla.value:
@@ -188,24 +187,18 @@ def get_fleet_view(page: ft.Page):
         
         try:
             horas = float(input_horas_ini.value)
-            max_h = float(input_max_horas.value)
-            
+
             if horas < 0:
                 input_horas_ini.error_text = "Valor incorrecto"
                 page.update()
                 return
-            if max_h < 0:
-                input_max_horas.error_text = "Valor incorrecto"
-                page.update()
-                return
-                
-            if registrar_aeronave(input_nueva_sigla.value, horas, max_horas=max_h):
+
+            # No se solicita vida útil al crear la aeronave; se usará el valor por defecto en la DB
+            if registrar_aeronave(input_nueva_sigla.value, horas):
                 input_nueva_sigla.value = ""
                 input_horas_ini.value = "0"
-                input_max_horas.value = "1000"
                 input_nueva_sigla.error_text = None
                 input_horas_ini.error_text = None
-                input_max_horas.error_text = None
                 actualizar_grid()
                 page.snack_bar = ft.SnackBar(ft.Text("Aeronave registrada con éxito"))
                 page.snack_bar.open = True
@@ -214,7 +207,6 @@ def get_fleet_view(page: ft.Page):
             page.update()
         except ValueError:
             input_horas_ini.error_text = "Valor incorrecto"
-            input_max_horas.error_text = "Valor incorrecto"
             page.update()
 
     view_mantenimiento = ft.Container(
@@ -224,7 +216,6 @@ def get_fleet_view(page: ft.Page):
                 content=ft.Row([
                     input_nueva_sigla,
                     input_horas_ini,
-                    input_max_horas,
                     ft.ElevatedButton(
                         "Registrar Avión", 
                         icon=ft.Icons.ADD, 

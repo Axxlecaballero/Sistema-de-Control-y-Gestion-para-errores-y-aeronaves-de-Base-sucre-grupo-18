@@ -241,7 +241,7 @@ def intercambiar_pieza_db(id_pieza, sigla_destino):
         conn.close()
 
 
-def registrar_falla_db(sigla, reportante, titulo, descripcion):
+def registrar_falla_db(sigla, reportante, titulo, descripcion, fecha=None):
     """Guarda una nueva falla en la base de datos SQLite."""
     conn = sqlite3.connect("mantenimiento.db")
     conn.row_factory = sqlite3.Row
@@ -253,9 +253,9 @@ def registrar_falla_db(sigla, reportante, titulo, descripcion):
         if aeronave:
             id_aero = aeronave["id_aeronave"]
             cursor.execute("""
-                INSERT INTO fallas (fk_aeronave, descubierta_por, titulo_falla, descripcion_falla, tipo_falla)
-                VALUES (?, ?, ?, ?, 'Pendiente')
-            """, (id_aero, reportante, titulo, descripcion))
+                INSERT INTO fallas (fk_aeronave, descubierta_por, titulo_falla, descripcion_falla, tipo_falla, fecha_descubierta)
+                VALUES (?, ?, ?, ?, 'Pendiente', ?)
+            """, (id_aero, reportante, titulo, descripcion, fecha))
             conn.commit()
             return True
         return False
@@ -272,7 +272,8 @@ def obtener_fallas_db():
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            SELECT a.sigla, f.descubierta_por as reportante, f.titulo_falla as falla, f.tipo_falla as status
+            SELECT a.sigla, f.descubierta_por as reportante, f.titulo_falla as falla,
+                   f.tipo_falla as status, f.fecha_descubierta as fecha
             FROM fallas f
             JOIN aeronaves a ON f.fk_aeronave = a.id_aeronave
         """)
