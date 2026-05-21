@@ -1,10 +1,9 @@
 import flet as ft
 from components import create_section_title, pieza_card
-from database import obtener_aeronaves, obtener_piezas_por_sigla, registrar_pieza, sumar_horas_pieza, intercambiar_pieza_db
+from database import obtener_aeronaves, obtener_piezas_por_sigla, registrar_pieza, intercambiar_pieza_db
 
 def get_piezas_view(page: ft.Page):
     selected_sigla = None
-    selected_pieza_id = None
 
     def on_aeronave_change(e):
         nonlocal selected_sigla
@@ -23,8 +22,6 @@ def get_piezas_view(page: ft.Page):
     input_sn = ft.TextField(label="Número Serie", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
     input_fabricante = ft.TextField(label="Fabricante", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
     input_horas_pieza = ft.TextField(label="Horas Iniciales", value="0", border_color=ft.Colors.BLUE_GREY_700, dense=True, expand=1)
-
-    input_horas_sumar_pieza = ft.TextField(label="Horas a sumar", border_color=ft.Colors.BLUE_GREY_700, keyboard_type=ft.KeyboardType.NUMBER)
     
     lista_piezas_row = ft.ResponsiveRow(spacing=20)
 
@@ -156,48 +153,6 @@ def get_piezas_view(page: ft.Page):
             dropdown_aeronaves.value = None
             cargar_piezas(None)
 
-    def abrir_dialogo_sumar_pieza(id_pieza, nombre_pieza):
-        nonlocal selected_pieza_id
-        selected_pieza_id = id_pieza
-        dialogo_sumar_pieza.title = ft.Text(f"Añadir Horas: {nombre_pieza}")
-        input_horas_sumar_pieza.value = ""
-        input_horas_sumar_pieza.error_text = None
-        dialogo_sumar_pieza.open = True
-        page.update()
-
-    def confirmar_suma_pieza(e):
-        nonlocal selected_pieza_id
-        try:
-            nuevas_horas = float(input_horas_sumar_pieza.value)
-            if nuevas_horas <= 0:
-                input_horas_sumar_pieza.error_text = "Valor incorrecto"
-                page.update()
-                return
-            sumar_horas_pieza(selected_pieza_id, nuevas_horas)
-            dialogo_sumar_pieza.open = False
-            cargar_piezas(selected_sigla)
-            page.snack_bar = ft.SnackBar(ft.Text("Horas añadidas a la pieza"))
-            page.snack_bar.open = True
-            page.update()
-        except ValueError:
-            input_horas_sumar_pieza.error_text = "Ingrese un número válido"
-            page.update()
-
-    dialogo_sumar_pieza = ft.AlertDialog(
-        modal=True,
-        title=ft.Text("Registrar Vuelo Pieza"),
-        content=ft.Column([
-            ft.Text("Ingrese las horas a añadir:", color=ft.Colors.BLUE_GREY_200),
-            input_horas_sumar_pieza,
-        ], tight=True, spacing=20),
-        actions=[
-            ft.TextButton("Cancelar", on_click=lambda e: (setattr(dialogo_sumar_pieza, 'open', False), page.update())),
-            ft.ElevatedButton("Confirmar", bgcolor=ft.Colors.CYAN_ACCENT, color=ft.Colors.BLACK, on_click=confirmar_suma_pieza),
-        ]
-    )
-
-    page.overlay.append(dialogo_sumar_pieza)
-
     def registrar_nueva_pieza(e):
         if not selected_sigla:
             page.snack_bar = ft.SnackBar(ft.Text("Primero seleccione una aeronave"), bgcolor=ft.Colors.RED_400)
@@ -269,7 +224,7 @@ def get_piezas_view(page: ft.Page):
         else:
             for p in piezas:
                 lista_piezas_row.controls.append(
-                    ft.Column([pieza_card(p, abrir_dialogo_sumar_pieza)], col={"sm": 12, "md": 6, "lg": 4})
+                    ft.Column([pieza_card(p)], col={"sm": 12, "md": 6, "lg": 4})
                 )
         page.update()
 
