@@ -151,7 +151,6 @@ def get_fleet_view(page: ft.Page):
             ft.Column([aircraft_card(
                 a["sigla"], 
                 a["horas"], 
-                a["max_horas"], 
                 a["prox_inspeccion"], 
                 abrir_dialogo_sumar,
                 abrir_dialogo_inspeccion,
@@ -167,7 +166,6 @@ def get_fleet_view(page: ft.Page):
         controls=[ft.Column([aircraft_card(
             a["sigla"], 
             a["horas"], 
-            a["max_horas"], 
             a["prox_inspeccion"], 
             abrir_dialogo_sumar,
             abrir_dialogo_inspeccion,

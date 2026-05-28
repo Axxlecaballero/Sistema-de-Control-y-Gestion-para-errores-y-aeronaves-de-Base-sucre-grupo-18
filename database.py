@@ -322,3 +322,77 @@ def actualizar_falla_db(sigla, titulo_original, inspector, titulo_nuevo, estado,
         return False
     finally:
         conn.close()
+
+
+def obtener_estadisticas_fallas(fecha_inicio=None, fecha_fin=None):
+    """Retorna fallas agrupadas por aeronave, ordenadas de mayor a menor cantidad."""
+    conn = sqlite3.connect("mantenimiento.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT a.sigla, COUNT(f.id_falla) as total_fallas,
+                   SUM(CASE WHEN f.tipo_falla = 'Pendiente' THEN 1 ELSE 0 END) as pendientes,
+                   SUM(CASE WHEN f.tipo_falla = 'Solucionado' THEN 1 ELSE 0 END) as solucionadas
+            FROM fallas f
+            JOIN aeronaves a ON f.fk_aeronave = a.id_aeronave
+        """
+        params = []
+        
+        if fecha_inicio and fecha_fin:
+            query += " WHERE DATE(f.fecha_descubierta) BETWEEN ? AND ?"
+            params.extend([fecha_inicio, fecha_fin])
+        elif fecha_inicio:
+            query += " WHERE DATE(f.fecha_descubierta) >= ?"
+            params.append(fecha_inicio)
+        elif fecha_fin:
+            query += " WHERE DATE(f.fecha_descubierta) <= ?"
+            params.append(fecha_fin)
+        
+        query += " GROUP BY a.sigla ORDER BY total_fallas DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"Error en obtener_estadisticas_fallas: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def obtener_fallas_por_aeronave_detalle(sigla, fecha_inicio=None, fecha_fin=None):
+    """Retorna lista detallada de fallas para una aeronave específica."""
+    conn = sqlite3.connect("mantenimiento.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT f.titulo_falla, f.descripcion_falla, f.tipo_falla as status,
+                   f.fecha_descubierta as fecha, f.descubierta_por as reportante
+            FROM fallas f
+            JOIN aeronaves a ON f.fk_aeronave = a.id_aeronave
+            WHERE a.sigla = ?
+        """
+        params = [sigla]
+        
+        if fecha_inicio and fecha_fin:
+            query += " AND DATE(f.fecha_descubierta) BETWEEN ? AND ?"
+            params.extend([fecha_inicio, fecha_fin])
+        elif fecha_inicio:
+            query += " AND DATE(f.fecha_descubierta) >= ?"
+            params.append(fecha_inicio)
+        elif fecha_fin:
+            query += " AND DATE(f.fecha_descubierta) <= ?"
+            params.append(fecha_fin)
+        
+        query += " ORDER BY f.fecha_descubierta DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"Error en obtener_fallas_por_aeronave_detalle: {e}")
+        return []
+    finally:
+        conn.close()

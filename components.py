@@ -7,7 +7,7 @@ def create_section_title(title, subtitle):
         ft.Divider(height=30, color=ft.Colors.WHITE_12)
     ], spacing=5)
 
-def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_insp_click, on_delete_click):
+def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, on_delete_click):
     # --- LÓGICA DINÁMICA DE PRÓRROGA Y ESTADOS ---
     limite_base = prox_inspeccion
     prorroga = 10
@@ -15,17 +15,10 @@ def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_i
     
     # Calculamos las diferencias
     faltan_insp = limite_base - horas
-    faltan_vida = max_horas - horas
     horas_ciclo = round(100.0 - faltan_insp, 2)
     if horas_ciclo < 0: horas_ciclo = 0
-    
-    vida_alcanzada = horas >= max_horas
-    
-    if vida_alcanzada:
-        estado = "VIDA ÚTIL ALCANZADA"
-        color_tema = ft.Colors.DEEP_PURPLE_400
-        porcentaje = 1.0
-    elif horas >= limite_total:
+
+    if horas >= limite_total:
         estado = "VENCIDO"
         color_tema = ft.Colors.RED_ACCENT
         porcentaje = 1.0
@@ -54,7 +47,7 @@ def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_i
                     content=ft.Text(
                         estado, 
                         size=10, weight="bold", 
-                        color=ft.Colors.WHITE if estado in ["VENCIDO", "VIDA ÚTIL ALCANZADA"] else ft.Colors.BLACK
+                        color=ft.Colors.WHITE if estado == "VENCIDO" else ft.Colors.BLACK
                     ),
                     bgcolor=color_tema,
                     padding=ft.Padding.symmetric(horizontal=8, vertical=2),
@@ -65,10 +58,6 @@ def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_i
             ft.Text(
                 f"Desde última Insp: {horas_ciclo} / 100 hr " + (f"(En prórroga)" if horas >= limite_base else ""), 
                 size=14, color=ft.Colors.BLUE_GREY_100
-            ),
-            ft.Text(
-                f"Vida Restante: {faltan_vida} hr (Total: {max_horas})", 
-                size=12, color=ft.Colors.AMBER_400
             ),
             ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=8),
             
@@ -83,15 +72,13 @@ def aircraft_card(sigla, horas, max_horas, prox_inspeccion, on_sumar_click, on_i
                     "Inspección", 
                     icon=ft.Icons.BUILD_CIRCLE,
                     style=ft.ButtonStyle(color=ft.Colors.BLUE_GREY_200),
-                    on_click=lambda _: on_insp_click(sigla),
-                    disabled=vida_alcanzada
+                    on_click=lambda _: on_insp_click(sigla)
                 ),
                 ft.TextButton(
                     "Agregar Horas", 
                     icon=ft.Icons.ADD, 
                     style=ft.ButtonStyle(color=color_tema),
-                    on_click=lambda _: on_sumar_click(sigla),
-                    disabled=vida_alcanzada
+                    on_click=lambda _: on_sumar_click(sigla)
                 )
             ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
         ], spacing=15),
