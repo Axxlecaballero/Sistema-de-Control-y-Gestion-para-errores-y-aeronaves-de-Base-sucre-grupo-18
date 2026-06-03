@@ -1,6 +1,6 @@
 import flet as ft
 from components import create_section_title, pieza_card
-from database import obtener_aeronaves, obtener_piezas_por_sigla, registrar_pieza, intercambiar_pieza_db
+from database import obtener_aeronaves, obtener_piezas_por_sigla, registrar_pieza, intercambiar_pieza_db, eliminar_pieza_db, inspeccionar_pieza_db
 
 def get_piezas_view(page: ft.Page):
     selected_sigla = None
@@ -139,6 +139,82 @@ def get_piezas_view(page: ft.Page):
 
     page.overlay.append(dialogo_intercambio)
 
+    # --- LÓGICA DE ELIMINAR E INSPECCIONAR PIEZAS ---
+    selected_pieza_id = None
+    input_tecnico_pieza = ft.TextField(label="Técnico Responsable", border_color=ft.Colors.BLUE_GREY_700)
+
+    def cerrar_dialogos_pieza(e=None):
+        dialogo_eliminar_pieza.open = False
+        dialogo_inspeccion_pieza.open = False
+        page.update()
+
+    def confirmar_eliminacion_pieza(e):
+        success, msg = eliminar_pieza_db(selected_pieza_id)
+        if success:
+            page.snack_bar = ft.SnackBar(ft.Text(msg))
+            cargar_piezas(selected_sigla)
+        else:
+            page.snack_bar = ft.SnackBar(ft.Text(msg), bgcolor=ft.Colors.RED_400)
+        page.snack_bar.open = True
+        cerrar_dialogos_pieza()
+
+    def confirmar_inspeccion_pieza(e):
+        if not input_tecnico_pieza.value:
+            input_tecnico_pieza.error_text = "Requerido"
+            page.update()
+            return
+        success, msg = inspeccionar_pieza_db(selected_pieza_id, input_tecnico_pieza.value)
+        if success:
+            page.snack_bar = ft.SnackBar(ft.Text(msg))
+            cargar_piezas(selected_sigla)
+            cerrar_dialogos_pieza()
+        else:
+            input_tecnico_pieza.error_text = msg
+            page.update()
+
+    dialogo_eliminar_pieza = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Eliminar Pieza"),
+        content=ft.Text("¿Estás seguro de que deseas eliminar esta pieza de la aeronave?\nSe perderá su historial.", color=ft.Colors.BLUE_GREY_200),
+        actions=[
+            ft.TextButton("Cancelar", on_click=cerrar_dialogos_pieza),
+            ft.ElevatedButton("Sí, Eliminar", bgcolor=ft.Colors.RED_400, color=ft.Colors.WHITE, on_click=confirmar_eliminacion_pieza),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
+    dialogo_inspeccion_pieza = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Inspección de Pieza"),
+        content=ft.Column([
+            ft.Text("¿Confirma que se ha realizado la inspección/mantenimiento de esta pieza?", color=ft.Colors.BLUE_GREY_200),
+            ft.Text("El ciclo de vida de la pieza se reiniciará a 0 hr.", size=12, color=ft.Colors.AMBER_ACCENT),
+            input_tecnico_pieza,
+        ], tight=True, spacing=20),
+        actions=[
+            ft.TextButton("Cancelar", on_click=cerrar_dialogos_pieza),
+            ft.ElevatedButton("Confirmar", bgcolor=ft.Colors.GREEN_400, color=ft.Colors.BLACK, on_click=confirmar_inspeccion_pieza),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
+    def abrir_dialogo_eliminar_pieza(pieza):
+        nonlocal selected_pieza_id
+        selected_pieza_id = pieza["id_pieza"]
+        dialogo_eliminar_pieza.open = True
+        page.update()
+
+    def abrir_dialogo_inspeccion_pieza(pieza):
+        nonlocal selected_pieza_id
+        selected_pieza_id = pieza["id_pieza"]
+        input_tecnico_pieza.value = ""
+        input_tecnico_pieza.error_text = None
+        dialogo_inspeccion_pieza.open = True
+        page.update()
+        
+    page.overlay.append(dialogo_eliminar_pieza)
+    page.overlay.append(dialogo_inspeccion_pieza)
+
     def cargar_dropdown_aeronaves():
         nonlocal selected_sigla
         aviones = obtener_aeronaves()
@@ -160,14 +236,33 @@ def get_piezas_view(page: ft.Page):
             page.update()
             return
             
-        if not input_nombre_pieza.value:
-            input_nombre_pieza.error_text = "Requerido"
-            page.update()
-            return
-        try:
-            horas = float(input_horas_pieza.value)
-        except ValueError:
-            input_horas_pieza.error_text = "Inválido"
+        hay_error = False
+        
+        def validar_campo(campo):
+            nonlocal hay_error
+            if not campo.value:
+                campo.error_text = "Requerido"
+                hay_error = True
+            else:
+                campo.error_text = None
+
+        validar_campo(input_nombre_pieza)
+        validar_campo(input_pn)
+        validar_campo(input_sn)
+        validar_campo(input_fabricante)
+
+        if not input_horas_pieza.value:
+            input_horas_pieza.error_text = "Requerido"
+            hay_error = True
+        else:
+            try:
+                horas = float(input_horas_pieza.value)
+                input_horas_pieza.error_text = None
+            except ValueError:
+                input_horas_pieza.error_text = "Inválido"
+                hay_error = True
+
+        if hay_error:
             page.update()
             return
 
@@ -224,7 +319,7 @@ def get_piezas_view(page: ft.Page):
         else:
             for p in piezas:
                 lista_piezas_row.controls.append(
-                    ft.Column([pieza_card(p)], col={"sm": 12, "md": 6, "lg": 4})
+                    ft.Column([pieza_card(p, abrir_dialogo_eliminar_pieza, abrir_dialogo_inspeccion_pieza)], col={"sm": 12, "md": 6, "lg": 4})
                 )
         page.update()
 

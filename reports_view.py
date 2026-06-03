@@ -21,7 +21,8 @@ def get_reports_view(page: ft.Page):
         page.update()
 
     # --- CAMPOS DE ENTRADA ---
-    dd_sigla_nuevo = ft.Dropdown(label="Sigla del Avión", expand=1, border_color=ft.Colors.BLUE_GREY_700)
+    dd_sigla_nuevo = ft.Dropdown(label="Sigla del Avión", expand=1, border_color=ft.Colors.BLUE_GREY_700, on_select=lambda e: al_cambiar_sigla_nuevo(e))
+    dd_pieza_falla_nuevo = ft.Dropdown(label="Pieza que Falló (Opcional)", expand=1, border_color=ft.Colors.BLUE_GREY_700)
     in_tecnico = ft.TextField(label="Nombre del Reportante", expand=1, border_color=ft.Colors.BLUE_GREY_700)
     in_falla = ft.TextField(label="Título de la Falla", expand=1, border_color=ft.Colors.BLUE_GREY_700)
     in_desc = ft.TextField(label="Descripción técnica", multiline=True, min_lines=3, expand=1, border_color=ft.Colors.BLUE_GREY_700)
@@ -133,23 +134,34 @@ def get_reports_view(page: ft.Page):
         dd_piezas_avion.value = None
         dd_piezas_avion.update()
 
+    def al_cambiar_sigla_nuevo(e):
+        if dd_sigla_nuevo.value:
+            piezas = obtener_piezas_por_sigla(dd_sigla_nuevo.value)
+            dd_pieza_falla_nuevo.options.clear()
+            dd_pieza_falla_nuevo.options.append(ft.dropdown.Option(key="", text="Ninguna / General"))
+            if piezas:
+                for p in piezas:
+                    dd_pieza_falla_nuevo.options.append(
+                        ft.dropdown.Option(key=str(p["id_pieza"]), text=f"{p['nombre_pieza']} (SN: {p['numero_serie']})")
+                    )
+            dd_pieza_falla_nuevo.value = ""
+            dd_pieza_falla_nuevo.update()
+
     # --- EVENTO DE SELECCIÓN NATIVO ---
     def al_seleccionar_reporte(e):
         if not dd_reportes_abiertos.value: 
             return
         
         try:
-            cadena_completa = dd_reportes_abiertos.value
-            partes = cadena_completa.split(" - ")
+            id_falla = int(dd_reportes_abiertos.value)
+            # Buscar el reporte en la lista local cargada
+            reporte = next((f for f in fallas_locales if f.get("id_falla") == id_falla), None)
             
-            if len(partes) >= 2:
-                sigla_limpia = partes[0].strip()
-                falla_limpia = partes[1].strip()
-
-                in_titulo_falla_info.value = falla_limpia
+            if reporte:
+                in_titulo_falla_info.value = reporte.get("falla", "")
                 in_titulo_falla_info.update()
                 
-                cargar_piezas_en_dropdown(sigla_limpia)
+                cargar_piezas_en_dropdown(reporte.get("sigla"))
         except Exception as ex:
             print(f"Error en al_seleccionar_reporte: {ex}")
 
@@ -167,9 +179,14 @@ def get_reports_view(page: ft.Page):
             mostrar_popup("Atención", "Por favor, llene todos los campos del reporte.", ft.Colors.ORANGE_400)
             return
         
-        if registrar_falla_db(dd_sigla_nuevo.value, in_tecnico.value, in_falla.value, in_desc.value, fecha_seleccionada_str):
+        pieza_id = dd_pieza_falla_nuevo.value if dd_pieza_falla_nuevo.value else None
+        
+        if registrar_falla_db(dd_sigla_nuevo.value, in_tecnico.value, in_falla.value, in_desc.value, pieza_id, fecha_seleccionada_str):
             mostrar_popup("Éxito", "Reporte registrado correctamente.", ft.Colors.GREEN_400)
             in_falla.value = ""; in_desc.value = ""; in_tecnico.value = ""; dd_sigla_nuevo.value = None
+            dd_pieza_falla_nuevo.value = None
+            dd_pieza_falla_nuevo.options.clear()
+            page.update()
             actualizar_tabla()
         
     def guardar_solucion_click(e):
@@ -177,19 +194,14 @@ def get_reports_view(page: ft.Page):
             mostrar_popup("Atención", "Debe completar la solución y elegir una pieza afectada.", ft.Colors.ORANGE_400)
             return
 
-        cadena_completa = dd_reportes_abiertos.value
-        partes = cadena_completa.split(" - ")
-        
-        if len(partes) < 2:
-            mostrar_popup("Error", "El formato del reporte seleccionado es incorrecto.", ft.Colors.RED_400)
+        try:
+            id_falla = int(dd_reportes_abiertos.value)
+        except ValueError:
+            mostrar_popup("Error", "Reporte seleccionado inválido.", ft.Colors.RED_400)
             return
-            
-        sigla_limpia = partes[0].strip()
-        titulo_original = partes[1].strip()
 
         exito = actualizar_falla_db(
-            sigla_limpia,
-            titulo_original,
+            id_falla,
             in_inspector.value,
             in_titulo_falla_info.value,
             dd_estado.value,
@@ -326,7 +338,10 @@ def get_reports_view(page: ft.Page):
         if mostrar_solucion:
             fallas = obtener_fallas_db()
             dd_reportes_abiertos.options = [
-                ft.dropdown.Option(f"{f['sigla']} - {f['falla']}") for f in fallas if f["status"] == "Pendiente"
+                ft.dropdown.Option(
+                    key=str(f["id_falla"]), 
+                    text=f"{f['sigla']} - {f['falla']} ({f.get('fecha', 'N/A')[:10]})"
+                ) for f in fallas if f["status"] == "Pendiente"
             ]
             form_nuevo.visible = False
             form_solucion.visible = True
@@ -339,7 +354,7 @@ def get_reports_view(page: ft.Page):
     form_nuevo = ft.Column([
         ft.Text("Nuevo Reporte de Falla", size=18, weight="bold", color=ft.Colors.CYAN_ACCENT),
         ft.Row([dd_sigla_nuevo, in_tecnico], spacing=20),
-        ft.Row([in_falla], spacing=20),
+        ft.Row([dd_pieza_falla_nuevo, in_falla], spacing=20),
         
         # Nueva fila que junta el campo de texto de la fecha y el botón para abrir el calendario
         ft.Row([

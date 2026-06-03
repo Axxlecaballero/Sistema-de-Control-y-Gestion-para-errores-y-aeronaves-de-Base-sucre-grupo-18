@@ -255,7 +255,7 @@ def intercambiar_pieza_db(id_pieza, sigla_destino):
         conn.close()
 
 
-def registrar_falla_db(sigla, reportante, titulo, descripcion, fecha=None):
+def registrar_falla_db(sigla, reportante, titulo, descripcion, id_pieza=None, fecha=None):
     """Guarda una nueva falla en la base de datos SQLite."""
     conn = sqlite3.connect("mantenimiento.db")
     conn.row_factory = sqlite3.Row
@@ -267,9 +267,9 @@ def registrar_falla_db(sigla, reportante, titulo, descripcion, fecha=None):
         if aeronave:
             id_aero = aeronave["id_aeronave"]
             cursor.execute("""
-                INSERT INTO fallas (fk_aeronave, descubierta_por, titulo_falla, descripcion_falla, tipo_falla, fecha_descubierta)
-                VALUES (?, ?, ?, ?, 'Pendiente', ?)
-            """, (id_aero, reportante, titulo, descripcion, fecha))
+                INSERT INTO fallas (fk_aeronave, descubierta_por, titulo_falla, descripcion_falla, tipo_falla, fecha_descubierta, fk_pieza)
+                VALUES (?, ?, ?, ?, 'Pendiente', ?, ?)
+            """, (id_aero, reportante, titulo, descripcion, fecha, id_pieza))
             conn.commit()
             return True
         return False
@@ -286,7 +286,7 @@ def obtener_fallas_db():
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            SELECT a.sigla, f.descubierta_por as reportante, f.titulo_falla as falla,
+            SELECT f.id_falla, a.sigla, f.descubierta_por as reportante, f.titulo_falla as falla,
                    f.tipo_falla as status, f.fecha_descubierta as fecha
             FROM fallas f
             JOIN aeronaves a ON f.fk_aeronave = a.id_aeronave
@@ -299,21 +299,20 @@ def obtener_fallas_db():
     finally:
         conn.close()
 
-def actualizar_falla_db(sigla, titulo_original, inspector, titulo_nuevo, estado, pieza, razon):
+def actualizar_falla_db(id_falla, inspector, titulo_nuevo, estado, pieza, razon):
     """Actualiza la falla y registra la solución."""
     conn = sqlite3.connect("mantenimiento.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
-        # Buscamos la falla específica
+        # Buscamos la falla específica por ID
         cursor.execute("""
             UPDATE fallas 
             SET tipo_falla = ?, 
                 titulo_falla = ?, 
                 descripcion_falla = descripcion_falla || '\n[SOLUCIÓN POR ' || ? || ']: ' || ? || ' (Pieza: ' || ? || ')'
-            WHERE fk_aeronave = (SELECT id_aeronave FROM aeronaves WHERE sigla = ?) 
-            AND titulo_falla = ?
-        """, (estado, titulo_nuevo, inspector, razon, pieza, sigla, titulo_original))
+            WHERE id_falla = ?
+        """, (estado, titulo_nuevo, inspector, razon, pieza, id_falla))
         
         conn.commit()
         return cursor.rowcount > 0
@@ -396,3 +395,85 @@ def obtener_fallas_por_aeronave_detalle(sigla, fecha_inicio=None, fecha_fin=None
         return []
     finally:
         conn.close()
+
+def obtener_fallas_por_pieza_en_periodo(sigla, periodo):
+    """
+    Retorna la cantidad de fallas por pieza de una aeronave específica en un periodo de tiempo.
+    """
+    conn = sqlite3.connect("mantenimiento.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        modificador_fecha = ""
+        if periodo == "ultima_semana":
+            modificador_fecha = "-7 days"
+        elif periodo == "ultimo_mes":
+            modificador_fecha = "-1 month"
+        elif periodo == "ultimos_6_meses":
+            modificador_fecha = "-6 months"
+        elif periodo == "ultimo_anio":
+            modificador_fecha = "-1 year"
+        elif periodo == "ultimos_2_anios":
+            modificador_fecha = "-2 years"
+        elif periodo == "ultimos_6_anios":
+            modificador_fecha = "-6 years"
+        
+        condicion_fecha = ""
+        params = []
+        if modificador_fecha:
+            condicion_fecha = "AND f.fecha_descubierta >= date('now', ?)"
+            params.append(modificador_fecha)
+            
+        params.append(sigla)
+            
+        query = f"""
+            SELECT p.nombre_pieza, p.numero_parte, COUNT(f.id_falla) as total_fallas
+            FROM piezas p
+            LEFT JOIN fallas f ON p.id_pieza = f.fk_pieza {condicion_fecha}
+            JOIN aeronaves a ON p.fk_aeronave = a.id_aeronave
+            WHERE a.sigla = ?
+            GROUP BY p.id_pieza
+            ORDER BY total_fallas DESC
+        """
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        print(f"Error en obtener_fallas_por_pieza_en_periodo: {e}")
+        return []
+    finally:
+        conn.close()
+
+def eliminar_pieza_db(id_pieza):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Se liberan las fallas asociadas a la pieza
+        cursor.execute("UPDATE fallas SET fk_pieza = NULL WHERE fk_pieza = ?", (id_pieza,))
+        cursor.execute("DELETE FROM piezas WHERE id_pieza = ?", (id_pieza,))
+        conn.commit()
+        return True, "Pieza eliminada correctamente."
+    except Exception as e:
+        print(f"Error al eliminar pieza: {e}")
+        return False, "Error interno al eliminar la pieza."
+    finally:
+        conn.close()
+
+def inspeccionar_pieza_db(id_pieza, tecnico):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE piezas 
+            SET horas_pieza = 0.0
+            WHERE id_pieza = ?
+        """, (id_pieza,))
+        conn.commit()
+        return True, "Inspección de pieza registrada. Ciclo de horas reiniciado a 0 hr."
+    except Exception as e:
+        print(f"Error al inspeccionar pieza: {e}")
+        return False, "Error interno al registrar inspección de la pieza."
+    finally:
+        conn.close()
+

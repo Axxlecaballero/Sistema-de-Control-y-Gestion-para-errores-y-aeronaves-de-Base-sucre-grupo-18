@@ -88,7 +88,7 @@ def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, 
         border=ft.Border.all(1, ft.Colors.WHITE_10),
     )
 
-def pieza_card(pieza):
+def pieza_card(pieza, on_delete_click, on_insp_click):
     horas = pieza["horas_pieza"]
     if horas < 90:
         estado = "OPERATIVO"
@@ -132,7 +132,22 @@ def pieza_card(pieza):
                 f"Vida Restante: {round(100.0 - horas, 2)} hr (Total: 100.0)", 
                 size=12, color=ft.Colors.AMBER_400
             ),
-            ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=6)
+            ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=6),
+            
+            ft.Row([
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    icon_color=ft.Colors.RED_400,
+                    tooltip="Eliminar Pieza",
+                    on_click=lambda _: on_delete_click(pieza)
+                ),
+                ft.TextButton(
+                    "Inspección", 
+                    icon=ft.Icons.BUILD_CIRCLE,
+                    style=ft.ButtonStyle(color=ft.Colors.BLUE_GREY_200),
+                    on_click=lambda _: on_insp_click(pieza)
+                )
+            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY)
         ], spacing=10),
         padding=15,
         bgcolor="#1e293b",

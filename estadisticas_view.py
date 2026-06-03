@@ -1,6 +1,11 @@
 import flet as ft
 from components import create_section_title
-from database import obtener_estadisticas_fallas, obtener_fallas_por_aeronave_detalle
+from database import (
+    obtener_estadisticas_fallas, 
+    obtener_fallas_por_aeronave_detalle, 
+    obtener_aeronaves, 
+    obtener_fallas_por_pieza_en_periodo
+)
 
 def get_estadisticas_view(page: ft.Page):
     
@@ -236,8 +241,12 @@ def get_estadisticas_view(page: ft.Page):
 
             stack_items = []
             if pend > 0:
+                pct_pend = int((pend / total_f) * 100)
+                txt_pend = ft.Text(f"{pct_pend}%", size=9, weight="bold", color=ft.Colors.WHITE) if bar_height_pend > 15 and bar_width > 20 else None
                 stack_items.append(
                     ft.Container(
+                        content=txt_pend,
+                        alignment=ft.Alignment(0, 0),
                         width=bar_width,
                         height=max(bar_height_pend, 6),
                         bgcolor="#f59e0b",
@@ -246,12 +255,16 @@ def get_estadisticas_view(page: ft.Page):
                             bottom_left=0 if sol > 0 else 4,
                             bottom_right=0 if sol > 0 else 4,
                         ),
-                        tooltip=f"{sigla}: {pend} pendientes",
+                        tooltip=f"{sigla}: {pend} pendientes ({pct_pend}%)",
                     )
                 )
             if sol > 0:
+                pct_sol = int((sol / total_f) * 100)
+                txt_sol = ft.Text(f"{pct_sol}%", size=9, weight="bold", color=ft.Colors.WHITE) if bar_height_sol > 15 and bar_width > 20 else None
                 stack_items.append(
                     ft.Container(
+                        content=txt_sol,
+                        alignment=ft.Alignment(0, 0),
                         width=bar_width,
                         height=max(bar_height_sol, 6),
                         bgcolor="#22c55e",
@@ -260,7 +273,7 @@ def get_estadisticas_view(page: ft.Page):
                             top_right=6 if pend == 0 else 0,
                             bottom_left=4, bottom_right=4,
                         ),
-                        tooltip=f"{sigla}: {sol} solucionadas",
+                        tooltip=f"{sigla}: {sol} solucionadas ({pct_sol}%)",
                     )
                 )
 
@@ -381,14 +394,138 @@ def get_estadisticas_view(page: ft.Page):
         except:
             pass
 
-    # --- LEYENDA DEL GRAFICO ---
-    leyenda = ft.Row([
-        ft.Container(width=14, height=14, bgcolor="#f59e0b", border_radius=3),
-        ft.Text("Pendientes", size=12, color=ft.Colors.BLUE_GREY_300),
-        ft.Container(width=20),
-        ft.Container(width=14, height=14, bgcolor="#22c55e", border_radius=3),
-        ft.Text("Solucionadas", size=12, color=ft.Colors.BLUE_GREY_300),
-    ], spacing=8, alignment=ft.MainAxisAlignment.CENTER)
+    # Leyenda eliminada según solicitud
+
+    # --- NUEVA SECCION: FALLAS POR PIEZA Y PERIODO ---
+    dd_aeronave_stats = ft.Dropdown(label="Aeronave", width=200, border_color=ft.Colors.BLUE_GREY_700)
+    dd_periodo_stats = ft.Dropdown(
+        label="Periodo de Tiempo", 
+        width=200, 
+        border_color=ft.Colors.BLUE_GREY_700,
+        options=[
+            ft.dropdown.Option("ultima_semana", "Última Semana"),
+            ft.dropdown.Option("ultimo_mes", "Último Mes"),
+            ft.dropdown.Option("ultimos_6_meses", "Últimos 6 Meses"),
+            ft.dropdown.Option("ultimo_anio", "Último Año"),
+            ft.dropdown.Option("ultimos_2_anios", "Últimos 2 Años"),
+            ft.dropdown.Option("ultimos_6_anios", "Últimos 6 Años"),
+        ],
+        value="ultimo_mes"
+    )
+    
+    tabla_piezas_stats = ft.DataTable(
+        heading_row_height=45,
+        data_row_min_height=48,
+        horizontal_lines=ft.BorderSide(0, ft.Colors.TRANSPARENT),
+        vertical_lines=ft.BorderSide(0, ft.Colors.TRANSPARENT),
+        divider_thickness=0,
+        columns=[
+            ft.DataColumn(ft.Text("Pieza", weight="bold", color=ft.Colors.CYAN_ACCENT)),
+            ft.DataColumn(ft.Text("Nro. Parte", weight="bold", color=ft.Colors.CYAN_ACCENT)),
+            ft.DataColumn(ft.Text("Fallas", weight="bold", color=ft.Colors.CYAN_ACCENT)),
+        ],
+        rows=[]
+    )
+    
+    txt_sin_piezas = ft.Text("No hay datos para el periodo seleccionado.", color=ft.Colors.BLUE_GREY_400, italic=True, visible=False)
+    
+    grafico_piezas_row = ft.Row(
+        [], spacing=12,
+        scroll=ft.ScrollMode.ADAPTIVE,
+        vertical_alignment=ft.CrossAxisAlignment.END,
+    )
+    
+    def actualizar_stats_piezas(e=None):
+        if not dd_aeronave_stats.value:
+            return
+            
+        datos_piezas = obtener_fallas_por_pieza_en_periodo(dd_aeronave_stats.value, dd_periodo_stats.value)
+        
+        tabla_piezas_stats.rows.clear()
+        
+        if not datos_piezas:
+            tabla_piezas_stats.visible = False
+            grafico_piezas_row.visible = False
+            txt_sin_piezas.visible = True
+        else:
+            tabla_piezas_stats.visible = True
+            grafico_piezas_row.visible = True
+            txt_sin_piezas.visible = False
+            
+            # Construir grafico
+            grafico_piezas_row.controls.clear()
+            # Filtrar solo piezas con fallas
+            piezas_con_fallas = [p for p in datos_piezas if p["total_fallas"] > 0]
+            
+            if not piezas_con_fallas:
+                grafico_piezas_row.visible = False
+                txt_sin_piezas.value = "No se registraron fallas en ninguna pieza en este periodo."
+                txt_sin_piezas.visible = True
+            else:
+                grafico_piezas_row.visible = True
+                txt_sin_piezas.visible = False
+                max_f_pieza = max(p["total_fallas"] for p in piezas_con_fallas)
+                
+                for p in piezas_con_fallas:
+                    nombre_corto = p["nombre_pieza"][:12] + "..." if len(p["nombre_pieza"]) > 12 else p["nombre_pieza"]
+                    alto_barra = (p["total_fallas"] / max_f_pieza) * 150
+                    
+                    barra = ft.Container(
+                        content=ft.Column([
+                            ft.Text(str(p["total_fallas"]), size=12, weight="bold", color=ft.Colors.AMBER_400),
+                            ft.Container(
+                                width=45,
+                                height=max(alto_barra, 6),
+                                bgcolor=ft.Colors.AMBER_400,
+                                border_radius=4,
+                                tooltip=f"{p['nombre_pieza']}: {p['total_fallas']} fallas"
+                            ),
+                            ft.Container(
+                                content=ft.Text(nombre_corto, size=10, color=ft.Colors.BLUE_GREY_300, text_align=ft.TextAlign.CENTER),
+                                width=45
+                            )
+                        ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.END)
+                    )
+                    grafico_piezas_row.controls.append(barra)
+            
+            # Llenar tabla
+            for idx, p in enumerate(datos_piezas):
+                color_fondo = "#1e293b" if idx % 2 == 0 else "#243249"
+                tabla_piezas_stats.rows.append(
+                    ft.DataRow(
+                        color=color_fondo,
+                        cells=[
+                            ft.DataCell(ft.Text(p["nombre_pieza"], weight="bold")),
+                            ft.DataCell(ft.Text(p["numero_parte"])),
+                            ft.DataCell(ft.Text(str(p["total_fallas"]), color=ft.Colors.AMBER_400 if p["total_fallas"] > 0 else ft.Colors.BLUE_GREY_200, weight="bold")),
+                        ]
+                    )
+                )
+        try:
+            page.update()
+        except:
+            pass
+
+    dd_aeronave_stats.on_select = actualizar_stats_piezas
+    dd_periodo_stats.on_select = actualizar_stats_piezas
+
+    piezas_stats_card = ft.Container(
+        padding=25,
+        bgcolor="#1e293b",
+        border_radius=12,
+        border=ft.Border.all(1, ft.Colors.WHITE_10),
+        content=ft.Column([
+            ft.Row([
+                ft.Icon(ft.Icons.BUILD_CIRCLE, color=ft.Colors.CYAN_ACCENT, size=22),
+                ft.Text("Fallas por Pieza en Periodo", size=16, weight="bold", color=ft.Colors.CYAN_ACCENT),
+            ], spacing=10),
+            ft.Row([dd_aeronave_stats, dd_periodo_stats], spacing=20),
+            txt_sin_piezas,
+            grafico_piezas_row,
+            ft.Divider(height=1, color=ft.Colors.WHITE_10),
+            tabla_piezas_stats,
+        ], spacing=15)
+    )
 
     # --- CONTENEDOR PRINCIPAL ---
     contenedor = ft.Container(
@@ -396,15 +533,24 @@ def get_estadisticas_view(page: ft.Page):
             create_section_title("Estadisticas", "Analisis de fallas reportadas por aeronave"),
             kpis_row,
             grafico_card,
-            leyenda,
             ranking_card,
             detalle_card,
+            piezas_stats_card,
         ], scroll=ft.ScrollMode.ADAPTIVE, spacing=20),
         padding=40, expand=True, visible=False
     )
 
     def refresh_data():
         actualizar_estadisticas()
+        
+        # Cargar aviones en dropdown de nueva seccion
+        aviones = obtener_aeronaves()
+        dd_aeronave_stats.options = [ft.dropdown.Option(a["sigla"]) for a in aviones]
+        if aviones and not dd_aeronave_stats.value:
+            dd_aeronave_stats.value = aviones[0]["sigla"]
+            actualizar_stats_piezas()
+        dd_aeronave_stats.update()
+
 
     contenedor.refresh_data = refresh_data
 
