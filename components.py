@@ -7,7 +7,7 @@ def create_section_title(title, subtitle):
         ft.Divider(height=30, color=ft.Colors.WHITE_12)
     ], spacing=5)
 
-def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, on_delete_click):
+def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, on_delete_click, horas_insp=0):
     # --- LÓGICA DINÁMICA DE PRÓRROGA Y ESTADOS ---
     limite_base = prox_inspeccion
     prorroga = 10
@@ -59,6 +59,10 @@ def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, 
                 f"Desde última Insp: {horas_ciclo} / 100 hr " + (f"(En prórroga)" if horas >= limite_base else ""), 
                 size=14, color=ft.Colors.BLUE_GREY_100
             ),
+            ft.Text(
+                f"Horas de vuelo: {int(horas_insp) if horas_insp == int(horas_insp) else horas_insp}",
+                size=12, color=ft.Colors.BLUE_GREY_300, italic=True
+            ),
             ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=8),
             
             ft.Row([
@@ -90,6 +94,7 @@ def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, 
 
 def pieza_card(pieza, on_delete_click, on_insp_click):
     horas = pieza["horas_pieza"]
+    horas_insp = pieza.get("horas_insp", 0.0)
     if horas < 90:
         estado = "OPERATIVO"
         color_tema = ft.Colors.CYAN_ACCENT
@@ -127,6 +132,10 @@ def pieza_card(pieza, on_delete_click, on_insp_click):
             ft.Text(
                 f"Horas de Vuelo: {horas} / 100 hr " + (f"(En prórroga)" if 100 <= horas < 110 else ""), 
                 size=14, color=ft.Colors.BLUE_GREY_100
+            ),
+            ft.Text(
+                f"Horas de vuelo: {int(horas_insp) if horas_insp == int(horas_insp) else horas_insp}",
+                size=12, color=ft.Colors.BLUE_GREY_300, italic=True
             ),
             ft.Text(
                 f"Vida Restante: {round(100.0 - horas, 2)} hr (Total: 100.0)", 

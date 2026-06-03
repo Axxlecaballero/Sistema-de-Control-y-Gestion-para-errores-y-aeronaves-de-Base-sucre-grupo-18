@@ -154,7 +154,8 @@ def get_fleet_view(page: ft.Page):
                 a["prox_inspeccion"], 
                 abrir_dialogo_sumar,
                 abrir_dialogo_inspeccion,
-                abrir_dialogo_eliminar
+                abrir_dialogo_eliminar,
+                horas_insp=a.get("horas_insp", 0)
             )], col={"sm": 12, "md": 6, "lg": 4}) 
             for a in aviones
         ]
@@ -169,7 +170,8 @@ def get_fleet_view(page: ft.Page):
             a["prox_inspeccion"], 
             abrir_dialogo_sumar,
             abrir_dialogo_inspeccion,
-            abrir_dialogo_eliminar
+            abrir_dialogo_eliminar,
+            horas_insp=a.get("horas_insp", 0)
         )], col={"sm": 12, "md": 6, "lg": 4}) for a in aviones_db],
         spacing=20
     )

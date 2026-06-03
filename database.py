@@ -43,6 +43,24 @@ def init_db():
     )
     """)
     
+    # Migración: Agregar columna horas_vuelo_insp a inspecciones si no existe
+    try:
+        cursor.execute("ALTER TABLE inspecciones ADD COLUMN horas_vuelo_insp REAL")
+    except sqlite3.OperationalError:
+        pass
+
+    # Tabla de Inspecciones de Piezas (Historial de inspección de piezas)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS inspecciones_piezas (
+        id_insp_pieza INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_insp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        hecha_por TEXT,
+        horas_pieza_insp REAL,
+        fk_pieza INTEGER,
+        FOREIGN KEY (fk_pieza) REFERENCES piezas (id_pieza)
+    )
+    """)
+    
     # Tabla de Fallas
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS fallas (
@@ -93,10 +111,21 @@ def registrar_aeronave(sigla, horas_iniciales, fabricante="", max_horas=1000, pr
 def obtener_aeronaves():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT sigla, horas_vuelo as horas, fabricante, max_horas, prox_inspeccion, estado FROM aeronaves")
-    rows = cursor.fetchall()
+    cursor.execute("SELECT id_aeronave, sigla, horas_vuelo as horas, fabricante, max_horas, prox_inspeccion, estado FROM aeronaves")
+    aeronaves = [dict(row) for row in cursor.fetchall()]
+    
+    for a in aeronaves:
+        cursor.execute("""
+            SELECT horas_vuelo_insp 
+            FROM inspecciones 
+            WHERE fk_aeronave = ? AND horas_vuelo_insp IS NOT NULL 
+            ORDER BY fecha_insp DESC LIMIT 1
+        """, (a["id_aeronave"],))
+        row = cursor.fetchone()
+        a["horas_insp"] = row["horas_vuelo_insp"] if row else 0.0
+        
     conn.close()
-    return [dict(row) for row in rows]
+    return aeronaves
 
 def sumar_horas_vuelo(sigla, nuevas_horas):
     conn = get_db_connection()
@@ -140,11 +169,11 @@ def realizar_inspeccion(sigla, tecnico, tipo="Periódica"):
             if horas_ciclo <= 0:
                 return False, "No se puede inspeccionar: El contador ya está en 0 hr."
             
-            # 2. Registrar la inspección en el historial
+            # 2. Registrar la inspección en el historial con las horas de vuelo que ya tenía
             cursor.execute("""
-                INSERT INTO inspecciones (hecha_por, tipo_inspeccion, fk_aeronave)
-                VALUES (?, ?, ?)
-            """, (tecnico, tipo, id_aero))
+                INSERT INTO inspecciones (hecha_por, tipo_inspeccion, fk_aeronave, horas_vuelo_insp)
+                VALUES (?, ?, ?, ?)
+            """, (tecnico, tipo, id_aero, horas_vuelo))
             
             # 3. Actualizar la aeronave: prox_inspeccion pasa a ser horas_vuelo + 100 y estado vuelve a Operativo
             cursor.execute("""
@@ -175,6 +204,13 @@ def eliminar_aeronave(sigla):
         if row:
             id_aero = row["id_aeronave"]
             cursor.execute("DELETE FROM inspecciones WHERE fk_aeronave = ?", (id_aero,))
+            
+            # Eliminar el historial de inspecciones de todas las piezas asociadas a la aeronave
+            cursor.execute("SELECT id_pieza FROM piezas WHERE fk_aeronave = ?", (id_aero,))
+            piece_ids = [r["id_pieza"] for r in cursor.fetchall()]
+            for pid in piece_ids:
+                cursor.execute("DELETE FROM inspecciones_piezas WHERE fk_pieza = ?", (pid,))
+                
             cursor.execute("DELETE FROM piezas WHERE fk_aeronave = ?", (id_aero,))
             cursor.execute("DELETE FROM fallas WHERE fk_aeronave = ?", (id_aero,))
             cursor.execute("DELETE FROM aeronaves WHERE id_aeronave = ?", (id_aero,))
@@ -217,9 +253,19 @@ def obtener_piezas_por_sigla(sigla):
         JOIN aeronaves a ON p.fk_aeronave = a.id_aeronave
         WHERE a.sigla = ?
     """, (sigla,))
-    rows = cursor.fetchall()
+    piezas = [dict(row) for row in cursor.fetchall()]
+    
+    for p in piezas:
+        cursor.execute("""
+            SELECT SUM(horas_pieza_insp) as total_insp 
+            FROM inspecciones_piezas 
+            WHERE fk_pieza = ?
+        """, (p["id_pieza"],))
+        row = cursor.fetchone()
+        p["horas_insp"] = row["total_insp"] if (row and row["total_insp"] is not None) else 0.0
+        
     conn.close()
-    return [dict(row) for row in rows]
+    return piezas
 
 def sumar_horas_pieza(id_pieza, nuevas_horas):
     conn = get_db_connection()
@@ -451,6 +497,7 @@ def eliminar_pieza_db(id_pieza):
     try:
         # Se liberan las fallas asociadas a la pieza
         cursor.execute("UPDATE fallas SET fk_pieza = NULL WHERE fk_pieza = ?", (id_pieza,))
+        cursor.execute("DELETE FROM inspecciones_piezas WHERE fk_pieza = ?", (id_pieza,))
         cursor.execute("DELETE FROM piezas WHERE id_pieza = ?", (id_pieza,))
         conn.commit()
         return True, "Pieza eliminada correctamente."
@@ -464,13 +511,27 @@ def inspeccionar_pieza_db(id_pieza, tecnico):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("""
-            UPDATE piezas 
-            SET horas_pieza = 0.0
-            WHERE id_pieza = ?
-        """, (id_pieza,))
-        conn.commit()
-        return True, "Inspección de pieza registrada. Ciclo de horas reiniciado a 0 hr."
+        # Obtener las horas actuales que tenía la pieza
+        cursor.execute("SELECT horas_pieza FROM piezas WHERE id_pieza = ?", (id_pieza,))
+        row = cursor.fetchone()
+        if row:
+            horas_pieza = row["horas_pieza"]
+            
+            # Registrar en el historial de inspecciones de piezas
+            cursor.execute("""
+                INSERT INTO inspecciones_piezas (hecha_por, fk_pieza, horas_pieza_insp)
+                VALUES (?, ?, ?)
+            """, (tecnico, id_pieza, horas_pieza))
+            
+            # Reiniciar las horas a 0.0
+            cursor.execute("""
+                UPDATE piezas 
+                SET horas_pieza = 0.0
+                WHERE id_pieza = ?
+            """, (id_pieza,))
+            conn.commit()
+            return True, "Inspección de pieza registrada. Ciclo de horas reiniciado a 0 hr."
+        return False, "Pieza no encontrada."
     except Exception as e:
         print(f"Error al inspeccionar pieza: {e}")
         return False, "Error interno al registrar inspección de la pieza."
