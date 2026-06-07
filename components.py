@@ -60,7 +60,7 @@ def aircraft_card(sigla, horas, prox_inspeccion, on_sumar_click, on_insp_click, 
                 size=14, color=ft.Colors.BLUE_GREY_100
             ),
             ft.Text(
-                f"Horas de vuelo: {int(horas_insp) if horas_insp == int(horas_insp) else horas_insp}",
+                f"Horas totales de vuelo: {int(horas) if horas == int(horas) else round(horas, 2)}",
                 size=12, color=ft.Colors.BLUE_GREY_300, italic=True
             ),
             ft.ProgressBar(value=porcentaje, color=color_tema, bgcolor=ft.Colors.WHITE_10, height=8),
@@ -134,7 +134,7 @@ def pieza_card(pieza, on_delete_click, on_insp_click):
                 size=14, color=ft.Colors.BLUE_GREY_100
             ),
             ft.Text(
-                f"Horas de vuelo: {int(horas_insp) if horas_insp == int(horas_insp) else horas_insp}",
+                f"Horas totales acumuladas: {int(horas + horas_insp) if (horas + horas_insp) == int(horas + horas_insp) else round(horas + horas_insp, 2)}",
                 size=12, color=ft.Colors.BLUE_GREY_300, italic=True
             ),
             ft.Text(

@@ -256,7 +256,7 @@ def get_piezas_view(page: ft.Page):
             hay_error = True
         else:
             try:
-                horas = float(input_horas_pieza.value)
+                horas = float(input_horas_pieza.value.replace(',', '.'))
                 input_horas_pieza.error_text = None
             except ValueError:
                 input_horas_pieza.error_text = "Inválido"

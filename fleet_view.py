@@ -23,7 +23,7 @@ def get_fleet_view(page: ft.Page):
     def confirmar_suma(e):
         nonlocal selected_sigla
         try:
-            nuevas_horas = float(input_horas_nuevas.value)
+            nuevas_horas = float(input_horas_nuevas.value.replace(',', '.'))
             if nuevas_horas <= 0:
                 input_horas_nuevas.error_text = "Valor incorrecto"
                 page.update()
@@ -186,7 +186,7 @@ def get_fleet_view(page: ft.Page):
             return
         
         try:
-            horas = float(input_horas_ini.value)
+            horas = float(input_horas_ini.value.replace(',', '.'))
 
             if horas < 0:
                 input_horas_ini.error_text = "Valor incorrecto"
