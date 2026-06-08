@@ -1,15 +1,23 @@
 import flet as ft
+import os
+import sys
 from fleet_view import get_fleet_view
 from reports_view import get_reports_view
 from piezas_view import get_piezas_view
 from estadisticas_view import get_estadisticas_view
 from database import init_db
 
+# Ruta base: funciona tanto en desarrollo como empaquetado con PyInstaller
+if getattr(sys, 'frozen', False):
+    BASE_PATH = sys._MEIPASS
+else:
+    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
 def main(page: ft.Page):
     # Inicializar base de datos
     init_db()
-    # Configuración básica de la página
-    page.title = "AERO-CONTROL: Gestión de Mantenimiento Aeronáutico"
+    page.title = "AERO-CONTROL GEANº18"
+    page.window.icon = os.path.join(BASE_PATH, "logo.ico")
     page.theme_mode = ft.ThemeMode.DARK
     page.window.width = 1200
     page.window.height = 900
@@ -56,4 +64,4 @@ def main(page: ft.Page):
     page.add(ft.Row([view_mantenimiento, view_piezas, view_fallas, view_estadisticas], expand=True))
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.app(target=main, assets_dir="assets")
