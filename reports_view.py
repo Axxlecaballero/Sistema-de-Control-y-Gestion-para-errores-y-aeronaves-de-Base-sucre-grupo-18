@@ -50,8 +50,6 @@ def get_reports_view(page: ft.Page):
     # Componente DatePicker nativo de Flet
     picker_calendario = ft.DatePicker(
         on_change=al_cambiar_calendario,
-        first_date=datetime(2020, 1, 1),
-        last_date=datetime(2030, 12, 31),
     )
     page.overlay.append(picker_calendario) # Se registra en el overlay de la página
 
