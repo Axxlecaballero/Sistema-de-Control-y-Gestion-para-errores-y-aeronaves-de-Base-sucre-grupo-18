@@ -1,7 +1,23 @@
 import sqlite3
+import os
+import sys
+
+def get_db_path():
+    """Retorna la ruta correcta de la base de datos.
+    En modo EXE (PyInstaller): usa el directorio del ejecutable.
+    En modo desarrollo: usa el directorio del script.
+    """
+    if getattr(sys, 'frozen', False):
+        # Directorio donde está el .exe
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, "mantenimiento.db")
+
+DB_PATH = get_db_path()
 
 def init_db():
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     # Tabla Aeronaves (según el diagrama proporcionado)
@@ -84,7 +100,7 @@ def init_db():
     conn.close()
 
 def get_db_connection():
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -303,7 +319,7 @@ def intercambiar_pieza_db(id_pieza, sigla_destino):
 
 def registrar_falla_db(sigla, reportante, titulo, descripcion, id_pieza=None, fecha=None):
     """Guarda una nueva falla en la base de datos SQLite."""
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -327,15 +343,17 @@ def registrar_falla_db(sigla, reportante, titulo, descripcion, id_pieza=None, fe
 
 def obtener_fallas_db():
     """Recupera todos los reportes de la base de datos."""
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
         cursor.execute("""
             SELECT f.id_falla, a.sigla, f.descubierta_por as reportante, f.titulo_falla as falla,
-                   f.tipo_falla as status, f.fecha_descubierta as fecha
+                   f.tipo_falla as status, f.fecha_descubierta as fecha,
+                   f.fk_pieza, COALESCE(p.nombre_pieza, 'Ninguna / General') as nombre_pieza
             FROM fallas f
             JOIN aeronaves a ON f.fk_aeronave = a.id_aeronave
+            LEFT JOIN piezas p ON f.fk_pieza = p.id_pieza
         """)
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -347,7 +365,7 @@ def obtener_fallas_db():
 
 def actualizar_falla_db(id_falla, inspector, titulo_nuevo, estado, pieza, razon):
     """Actualiza la falla y registra la solución."""
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -371,7 +389,7 @@ def actualizar_falla_db(id_falla, inspector, titulo_nuevo, estado, pieza, razon)
 
 def obtener_estadisticas_fallas(fecha_inicio=None, fecha_fin=None):
     """Retorna fallas agrupadas por aeronave, ordenadas de mayor a menor cantidad."""
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -408,7 +426,7 @@ def obtener_estadisticas_fallas(fecha_inicio=None, fecha_fin=None):
 
 def obtener_fallas_por_aeronave_detalle(sigla, fecha_inicio=None, fecha_fin=None):
     """Retorna lista detallada de fallas para una aeronave específica."""
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -446,7 +464,7 @@ def obtener_fallas_por_pieza_en_periodo(sigla, periodo):
     """
     Retorna la cantidad de fallas por pieza de una aeronave específica en un periodo de tiempo.
     """
-    conn = sqlite3.connect("mantenimiento.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:

@@ -1,7 +1,7 @@
 import flet as ft
 from datetime import datetime
 from components import create_section_title
-from database import obtener_aeronaves, obtener_piezas_por_sigla, registrar_falla_db, obtener_fallas_db, actualizar_falla_db
+from database import obtener_aeronaves, registrar_falla_db, obtener_fallas_db, actualizar_falla_db
 
 def get_reports_view(page: ft.Page):
     
@@ -56,8 +56,20 @@ def get_reports_view(page: ft.Page):
     in_inspector = ft.TextField(label="Inspector Responsable", expand=1, border_color=ft.Colors.BLUE_GREY_700)
     in_titulo_falla_info = ft.TextField(label="Falla Detectada", expand=1, border_color=ft.Colors.BLUE_GREY_700)
     dd_estado = ft.Dropdown(label="Estado", options=[ft.dropdown.Option("Pendiente"), ft.dropdown.Option("Solucionado")], value="Solucionado", expand=1)
-    dd_piezas_avion = ft.Dropdown(label="Pieza Afectada", expand=1, border_color=ft.Colors.BLUE_GREY_700)
     in_razon_falla = ft.TextField(label="Razón de la Falla / Acción Tomada", multiline=True, min_lines=3, expand=1, border_color=ft.Colors.BLUE_GREY_700)
+
+    # Texto informativo que muestra la pieza asociada al reporte seleccionado (no editable)
+    txt_pieza_info = ft.TextField(
+        label="Pieza Asociada al Reporte",
+        value="—",
+        read_only=True,
+        expand=1,
+        border_color=ft.Colors.BLUE_GREY_700,
+        color=ft.Colors.CYAN_200,
+        hint_text="Se carga automáticamente al seleccionar el reporte"
+    )
+    # Variable interna para guardar la pieza del reporte seleccionado
+    _pieza_del_reporte = {"nombre": "Ninguna / General"}
 
     # ---  LISTA LOCAL Y CAMPOS DE FILTROS ---
     fallas_locales = []
@@ -114,23 +126,7 @@ def get_reports_view(page: ft.Page):
         on_select=lambda e: aplicar_filtros()
     )
 
-    # --- CARGA DE PIEZAS ---
-    def cargar_piezas_en_dropdown(sigla_aeronave):
-        piezas = obtener_piezas_por_sigla(sigla_aeronave)
-        dd_piezas_avion.options.clear()
-        
-        if not piezas:
-            dd_piezas_avion.options.append(
-                ft.dropdown.Option(text="No hay piezas registradas en esta aeronave", disabled=True)
-            )
-        else:
-            for p in piezas:
-                dd_piezas_avion.options.append(
-                    ft.dropdown.Option(text=p["nombre_pieza"])
-                )
-        
-        dd_piezas_avion.value = None
-        dd_piezas_avion.update()
+    # --- (Se eliminó la carga dinámica de piezas en el form de solución) ---
 
     def al_cambiar_sigla_nuevo(e):
         if dd_sigla_nuevo.value:
@@ -147,19 +143,23 @@ def get_reports_view(page: ft.Page):
 
     # --- EVENTO DE SELECCIÓN NATIVO ---
     def al_seleccionar_reporte(e):
-        if not dd_reportes_abiertos.value: 
+        if not dd_reportes_abiertos.value:
             return
-        
+
         try:
             id_falla = int(dd_reportes_abiertos.value)
             # Buscar el reporte en la lista local cargada
             reporte = next((f for f in fallas_locales if f.get("id_falla") == id_falla), None)
-            
+
             if reporte:
                 in_titulo_falla_info.value = reporte.get("falla", "")
                 in_titulo_falla_info.update()
-                
-                cargar_piezas_en_dropdown(reporte.get("sigla"))
+
+                # Mostrar la pieza asociada al reporte (no editable, viene del reporte)
+                nombre = reporte.get("nombre_pieza") or "Ninguna / General"
+                _pieza_del_reporte["nombre"] = nombre
+                txt_pieza_info.value = nombre
+                txt_pieza_info.update()
         except Exception as ex:
             print(f"Error en al_seleccionar_reporte: {ex}")
 
@@ -188,8 +188,8 @@ def get_reports_view(page: ft.Page):
             actualizar_tabla()
         
     def guardar_solucion_click(e):
-        if not all([dd_reportes_abiertos.value, in_inspector.value, dd_piezas_avion.value, in_razon_falla.value]):
-            mostrar_popup("Atención", "Debe completar la solución y elegir una pieza afectada.", ft.Colors.ORANGE_400)
+        if not all([dd_reportes_abiertos.value, in_inspector.value, in_razon_falla.value]):
+            mostrar_popup("Atención", "Debe seleccionar el reporte, completar el inspector y la razón de la solución.", ft.Colors.ORANGE_400)
             return
 
         try:
@@ -198,12 +198,15 @@ def get_reports_view(page: ft.Page):
             mostrar_popup("Error", "Reporte seleccionado inválido.", ft.Colors.RED_400)
             return
 
+        # La pieza viene del propio reporte, no se solicita de nuevo
+        pieza_del_reporte = _pieza_del_reporte.get("nombre", "Ninguna / General")
+
         exito = actualizar_falla_db(
             id_falla,
             in_inspector.value,
             in_titulo_falla_info.value,
             dd_estado.value,
-            dd_piezas_avion.value,
+            pieza_del_reporte,
             in_razon_falla.value
         )
 
@@ -212,7 +215,8 @@ def get_reports_view(page: ft.Page):
             in_inspector.value = ""
             in_razon_falla.value = ""
             in_titulo_falla_info.value = ""
-            dd_piezas_avion.value = None
+            txt_pieza_info.value = "—"
+            _pieza_del_reporte["nombre"] = "Ninguna / General"
             dd_reportes_abiertos.value = None
             cambiar_vista(False)
             actualizar_tabla()
@@ -377,7 +381,13 @@ def get_reports_view(page: ft.Page):
         ft.Text("Reportar Solución", size=18, weight="bold", color=ft.Colors.GREEN_400),
         ft.Row([dd_reportes_abiertos], spacing=20),
         ft.Row([in_inspector, in_titulo_falla_info], spacing=20),
-        ft.Row([dd_estado, dd_piezas_avion], spacing=20),
+        ft.Row([
+            dd_estado,
+            ft.Column([
+                ft.Text("Pieza Asociada al Reporte", size=11, color=ft.Colors.BLUE_GREY_400),
+                txt_pieza_info,
+            ], expand=1, spacing=4)
+        ], spacing=20),
         ft.Row([in_razon_falla], spacing=20),
         ft.Row([
             ft.TextButton("Registrar Nuevo Reporte", on_click=lambda _: cambiar_vista(False)),
